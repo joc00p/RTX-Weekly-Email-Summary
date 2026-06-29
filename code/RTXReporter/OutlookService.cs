@@ -1,0 +1,104 @@
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace RTXReporter;
+
+public record EmailItem(string Subject, string From, string Received, string Body);
+
+public class OutlookService
+{
+    private const string TargetFolder = "RTX Weekly Team Punch List";
+
+    public Dictionary<string, List<EmailItem>> FetchEmailsByWeek()
+    {
+        var outlookType = Type.GetTypeFromProgID("Outlook.Application")
+            ?? throw new InvalidOperationException("Outlook is not installed or not registered on this machine.");
+
+        dynamic outlook = Activator.CreateInstance(outlookType)!;
+        dynamic ns = outlook.GetNamespace("MAPI");
+
+        var diagnostics = new StringBuilder();
+        dynamic? folder = null;
+
+        foreach (dynamic account in ns.Folders)
+        {
+            try
+            {
+                string accountName = (string)account.Name;
+                diagnostics.AppendLine($"Account: {accountName}");
+                folder = FindFolder(account, TargetFolder, diagnostics, 1);
+                if (folder != null) break;
+            }
+            catch (System.Exception ex)
+            {
+                diagnostics.AppendLine($"  ERROR: {ex.Message}");
+            }
+        }
+
+        if (folder == null)
+            throw new InvalidOperationException(
+                $"Could not find '{TargetFolder}' folder.\n\nFolders scanned:\n{diagnostics}");
+
+        dynamic items = folder.Items;
+        items.Sort("[ReceivedTime]", true);
+
+        var byWeek = new Dictionary<string, List<EmailItem>>();
+
+        foreach (dynamic msg in items)
+        {
+            try
+            {
+                // 43 = olMailItem
+                if ((int)msg.Class != 43) continue;
+
+                DateTime received = ((DateTime)msg.ReceivedTime).ToLocalTime();
+                string week = GetWeekLabel(received);
+                if (!byWeek.ContainsKey(week))
+                    byWeek[week] = new List<EmailItem>();
+
+                string body = (string)msg.Body ?? "";
+                byWeek[week].Add(new EmailItem(
+                    (string)msg.Subject ?? "",
+                    (string)msg.SenderName ?? "",
+                    received.ToString("ddd MMM dd hh:mm tt"),
+                    body.Trim()
+                ));
+            }
+            catch { }
+        }
+
+        return byWeek;
+    }
+
+    private static dynamic? FindFolder(dynamic parent, string name, StringBuilder log, int depth)
+    {
+        try
+        {
+            foreach (dynamic sub in parent.Folders)
+            {
+                try
+                {
+                    string subName = (string)sub.Name;
+                    log.AppendLine($"{new string(' ', depth * 2)}{subName}");
+                    if (subName.Contains(name, StringComparison.OrdinalIgnoreCase))
+                        return sub;
+                    var found = FindFolder(sub, name, log, depth + 1);
+                    if (found != null) return found;
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static string GetWeekLabel(DateTime dt)
+    {
+        int offset = dt.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)dt.DayOfWeek - 1;
+        var monday = dt.AddDays(-offset);
+        var sunday = monday.AddDays(6);
+        return $"Week of {monday:MMM dd} - {sunday:MMM dd, yyyy}";
+    }
+}
