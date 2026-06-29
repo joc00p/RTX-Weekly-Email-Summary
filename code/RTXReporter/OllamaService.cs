@@ -104,7 +104,44 @@ public class OllamaService
         report.AppendLine();
         report.AppendLine(execSummary.Trim());
 
-        return report.ToString();
+        return CleanBulletSpacing(report.ToString());
+    }
+
+    private static string CleanBulletSpacing(string text)
+    {
+        var lines = text.Split('\n');
+        var result = new List<string>();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd();
+
+            // Skip blank lines that fall between two bullet lines
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                int next = i + 1;
+                while (next < lines.Length && string.IsNullOrWhiteSpace(lines[next]))
+                    next++;
+
+                bool prevIsBullet = result.Count > 0 && lines[i - 1].TrimStart().StartsWith('-');
+                bool nextIsBullet = next < lines.Length && lines[next].TrimStart().StartsWith('-');
+
+                if (prevIsBullet && nextIsBullet)
+                {
+                    i = next - 1; // skip all blanks, next iteration picks up the bullet
+                    continue;
+                }
+
+                // Collapse multiple blank lines into one
+                result.Add("");
+                i = next - 1;
+                continue;
+            }
+
+            result.Add(line);
+        }
+
+        return string.Join("\n", result).Trim();
     }
 
     private static async Task<string> CallOllama(string prompt, CancellationToken ct)
