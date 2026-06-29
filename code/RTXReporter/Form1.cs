@@ -73,15 +73,18 @@ public class MainForm : Form
 
         _toolbar = new Panel { Dock = DockStyle.Top, Height = 50 };
 
+        var reloadBtn = MakeButton("Reload", Color.FromArgb(70, 130, 180));
+        reloadBtn.Click += LoadEmails_Click;
+
         _generateBtn = MakeButton("Generate Report", Color.FromArgb(16, 137, 62));
         _generateBtn.Enabled = false;
         _generateBtn.Click += GenerateReport_Click;
 
-        _copyBtn = MakeButton("Copy", Color.FromArgb(100, 100, 100));
+        _copyBtn = MakeButton("Copy", Color.FromArgb(70, 130, 180));
         _copyBtn.Enabled = false;
         _copyBtn.Click += (_, _) => Clipboard.SetText(_reportBox.Text);
 
-        _saveBtn = MakeButton("Save As...", Color.FromArgb(100, 100, 100));
+        _saveBtn = MakeButton("Save As...", Color.FromArgb(70, 130, 180));
         _saveBtn.Enabled = false;
         _saveBtn.Click += SaveReport_Click;
 
@@ -89,7 +92,7 @@ public class MainForm : Form
         _themeToggle.ThemeChanged += ThemeBtn_Click;
 
         int x = 10;
-        foreach (var btn in new[] { _generateBtn, _copyBtn, _saveBtn })
+        foreach (var btn in new[] { reloadBtn, _generateBtn, _copyBtn, _saveBtn })
         {
             btn.Left = x;
             btn.Top = 10;
