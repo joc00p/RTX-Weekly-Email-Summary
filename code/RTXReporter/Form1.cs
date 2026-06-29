@@ -17,7 +17,6 @@ public class MainForm : Form
 
     private ListBox _weekList = null!;
     private RichTextBox _reportBox = null!;
-    private Button _loadBtn = null!;
     private Button _generateBtn = null!;
     private Button _copyBtn = null!;
     private Button _saveBtn = null!;
@@ -43,9 +42,6 @@ public class MainForm : Form
         var toolbar = new Panel { Dock = DockStyle.Top, Height = 50 };
         toolbar.BackColor = Color.FromArgb(245, 245, 245);
 
-        _loadBtn = MakeButton("Load Emails", Color.FromArgb(0, 120, 215));
-        _loadBtn.Click += LoadEmails_Click;
-
         _generateBtn = MakeButton("Generate Report", Color.FromArgb(16, 137, 62));
         _generateBtn.Enabled = false;
         _generateBtn.Click += GenerateReport_Click;
@@ -59,7 +55,7 @@ public class MainForm : Form
         _saveBtn.Click += SaveReport_Click;
 
         int x = 10;
-        foreach (var btn in new[] { _loadBtn, _generateBtn, _copyBtn, _saveBtn })
+        foreach (var btn in new[] { _generateBtn, _copyBtn, _saveBtn })
         {
             btn.Left = x;
             btn.Top = 10;
@@ -102,6 +98,7 @@ public class MainForm : Form
         Shown += (_, _) => {
             int dist = Math.Max(split.Panel1MinSize, Math.Min(230, split.Width - split.Panel2MinSize - split.SplitterWidth));
             split.SplitterDistance = dist;
+            LoadEmails_Click(null, EventArgs.Empty);
         };
 
         // Left panel: week list
@@ -175,6 +172,7 @@ public class MainForm : Form
         _saveBtn.Enabled = false;
         _reportCache.Clear();
 
+
         try
         {
             _emailsByWeek = await Task.Run(() => _outlook.FetchEmailsByWeek());
@@ -202,19 +200,70 @@ public class MainForm : Form
         if (count == 0) return;
         _generateBtn.Enabled = true;
 
-        // If exactly one week selected and it's cached, show it
+        // If exactly one week selected and cached, show full report
         if (count == 1 && _weekList.SelectedItems[0] is string week && _reportCache.TryGetValue(week, out var cached))
         {
             ShowReport(cached);
             SetStatus($"Cached report — {week}.");
+            return;
         }
-        else
+
+        // Otherwise show email previews for all selected weeks
+        var selectedWeeks = new List<string>();
+        foreach (var item in _weekList.SelectedItems)
+            if (item is string w) selectedWeeks.Add(w);
+
+        ShowEmailPreviews(selectedWeeks);
+    }
+
+    private void ShowEmailPreviews(List<string> weeks)
+    {
+        _reportBox.Clear();
+        _reportBox.ForeColor = Color.FromArgb(30, 30, 30);
+
+        foreach (var week in weeks)
         {
-            _reportBox.Clear();
-            _reportBox.ForeColor = Color.FromArgb(120, 120, 120);
-            string label = count == 1 ? $"{_weekList.SelectedItems[0]}" : $"{count} weeks selected";
-            _reportBox.Text = $"Click 'Generate Report' to build the AI summary for {label}.";
+            if (!_emailsByWeek.TryGetValue(week, out var emails)) continue;
+
+            // Week header
+            _reportBox.SelectionFont = new Font("Segoe UI", 11f, FontStyle.Bold);
+            _reportBox.SelectionColor = Color.FromArgb(0, 84, 166);
+            _reportBox.AppendText($"{week}  ({emails.Count} email{(emails.Count != 1 ? "s" : "")})\n");
+
+            foreach (var email in emails)
+            {
+                // Email subject line + date
+                _reportBox.SelectionFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                _reportBox.SelectionColor = Color.FromArgb(30, 30, 30);
+                _reportBox.AppendText($"  {email.From}  —  {email.Subject}\n");
+                _reportBox.SelectionFont = new Font("Segoe UI", 8.5f, FontStyle.Italic);
+                _reportBox.SelectionColor = Color.FromArgb(120, 120, 120);
+                _reportBox.AppendText($"    Received: {email.Received}\n");
+
+                // First 4 non-empty lines of body
+                var lines = email.Body.Split('\n');
+                int shown = 0;
+                foreach (var line in lines)
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrWhiteSpace(trimmed)) continue;
+                    _reportBox.SelectionFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+                    _reportBox.SelectionColor = Color.FromArgb(80, 80, 80);
+                    _reportBox.AppendText($"    {trimmed}\n");
+                    if (++shown >= 4) break;
+                }
+
+                _reportBox.AppendText("\n");
+            }
+
+            _reportBox.AppendText("\n");
         }
+
+        _reportBox.SelectionStart = 0;
+        _reportBox.SelectionLength = 0;
+
+        string label = weeks.Count == 1 ? weeks[0] : $"{weeks.Count} weeks";
+        SetStatus($"Previewing {label} — click Generate Report to build the AI summary.");
     }
 
     private async void GenerateReport_Click(object? sender, EventArgs e)
@@ -311,7 +360,6 @@ public class MainForm : Form
 
     private void SetBusy(bool busy, string msg)
     {
-        _loadBtn.Enabled = !busy;
         _progress.Visible = busy;
         if (!string.IsNullOrEmpty(msg)) SetStatus(msg);
     }

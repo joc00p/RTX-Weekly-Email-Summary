@@ -53,12 +53,17 @@ public class OutlookService
                 // 43 = olMailItem
                 if ((int)msg.Class != 43) continue;
 
-                DateTime received = ((DateTime)msg.ReceivedTime).ToLocalTime();
+                object rawTime = msg.ReceivedTime;
+                DateTime received = rawTime is double d
+                    ? DateTime.FromOADate(d)
+                    : Convert.ToDateTime(rawTime);
                 string week = GetWeekLabel(received);
                 if (!byWeek.ContainsKey(week))
                     byWeek[week] = new List<EmailItem>();
 
-                string body = (string)msg.Body ?? "";
+                string body = StripQuotedContent((string)msg.Body ?? "");
+                if (string.IsNullOrWhiteSpace(body)) continue;
+
                 byWeek[week].Add(new EmailItem(
                     (string)msg.Subject ?? "",
                     (string)msg.SenderName ?? "",
@@ -92,6 +97,30 @@ public class OutlookService
         }
         catch { }
         return null;
+    }
+
+    private static string StripQuotedContent(string body)
+    {
+        var lines = body.Split('\n');
+        var result = new StringBuilder();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            var line = lines[i].TrimEnd();
+            var trimmed = line.TrimStart();
+
+            // Stop at common quote/forward separators
+            if (trimmed.StartsWith("-----Original Message-----", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("________________________________", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("From:", StringComparison.OrdinalIgnoreCase) && i > 0 && string.IsNullOrWhiteSpace(lines[i - 1]) ||
+                trimmed.StartsWith(">") ||
+                trimmed.StartsWith("On ") && trimmed.Contains(" wrote:"))
+                break;
+
+            result.AppendLine(line);
+        }
+
+        return result.ToString().Trim();
     }
 
     private static string GetWeekLabel(DateTime dt)

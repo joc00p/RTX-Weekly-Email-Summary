@@ -37,34 +37,45 @@ public class OllamaService
 
             {blocks}
 
-            Generate a structured weekly status report using ONLY the following format. Do not mention emails, senders, punch lists, or that this came from emails. Write as if it is an official team report. Exclude any activities or updates from Joel Coopersmith — do not include him in the report at all.
+            Generate a structured status report using ONLY the following format. Do not mention emails, senders, punch lists, or that this came from emails. Write as if it is an official team report. Exclude any activities or updates from Joel Coopersmith — do not include him in the report at all.
+
+            CRITICAL RULES:
+            - Only include people who have actual, specific activities mentioned in the source data above
+            - Do not invent, infer, or create placeholder sections for anyone
+            - Each real person appears exactly once — consolidate all their activities across all weeks into one section
+            - If a name has no concrete activities, omit them entirely
+            - Do not include Joel Coopersmith under any circumstances
 
             ---
 
-            ## WEEKLY STATUS REPORT — {weekLabel}
+            ## STATUS REPORT — {weekLabel}
 
             ### Team Updates
-            For each team member's work, create a section:
 
-            **[Full Name] — [Role or Area if inferable]**
-            - [bullet: key activity or task completed]
-            - [bullet: key activity or task completed]
-            - [bullet: issues, blockers, or risks if any]
-            - [bullet: pending actions or next steps if any]
+            **[Full Name] — [Role or Area if clearly stated]**
+            - [specific activity or task from the source data]
+            - [specific activity or task from the source data]
+            - [blocker or risk if mentioned]
+            - [next step if mentioned]
 
-            (Repeat for each person)
-
-            ---
-
-            ### Weekly Summary
-            - [bullet: overall team progress this week]
-            - [bullet: key accomplishments]
-            - [bullet: active risks or issues]
-            - [bullet: items pending or in progress]
+            (Repeat only for people with real data — no empty sections, no placeholders)
 
             ---
 
-            Use consistent formatting. Use bullet points only — no paragraphs. Be concise and factual.
+            ### Summary
+            - [overall team progress]
+            - [key accomplishments]
+            - [active risks or issues]
+            - [items pending]
+
+            ---
+
+            ### Executive Summary
+            Write 3-5 sentences in professional prose summarizing the overall state of the team and project for this period. Highlight the most important accomplishments, any critical risks or blockers, and the outlook going forward. This should read as a standalone paragraph suitable for senior leadership.
+
+            ---
+
+            Team Updates and Summary use bullet points only. Executive Summary is prose only. No invented content. Only facts from the source data.
             """;
 
         var payload = JsonSerializer.Serialize(new { model = Model, prompt, stream = false });
