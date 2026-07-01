@@ -75,6 +75,25 @@ public class PowerPointService
             t.InnerText = $"as of {dateStr}";
     }
 
+    // Maps last-name keywords → team label (case-insensitive substring match on full name)
+    private static readonly (string[] Keywords, string Team)[] TeamMap =
+    [
+        (["cottone", "velaides", "deheer", "aguilera"],             "SAP"),
+        (["olufosoye", "guerrero", "page"],                         "DBA SQL"),
+        (["villa", "monday", "adams", "yosick", "mcmillan",
+          "leonhartsberger", "bishop", "el faiz", "corredor", "herbert"], "CLOUD"),
+        (["hamby"],                                                  "ITIL Svc Mgmt"),
+    ];
+
+    private static string GetTeam(string personName)
+    {
+        var lower = personName.ToLowerInvariant();
+        foreach (var (keywords, team) in TeamMap)
+            if (keywords.Any(k => lower.Contains(k)))
+                return team;
+        return "Other";
+    }
+
     private static void UpdateKeyAccomplishments(XmlDocument doc, XmlNamespaceManager nsm, string reportText)
     {
         // Find the table whose first cell header is "Key Accomplishments"
@@ -99,12 +118,27 @@ public class PowerPointService
         foreach (var p in txBody.SelectNodes("a:p", nsm)!.Cast<XmlNode>().ToList())
             txBody.RemoveChild(p);
 
+        // Group parsed sections by team, preserving team order
         var sections = ParseReportSections(reportText);
-        foreach (var (name, bullets) in sections)
+        var teamOrder = new[] { "SAP", "DBA SQL", "CLOUD", "ITIL Svc Mgmt", "Other" };
+        var byTeam = sections.GroupBy(s => GetTeam(s.Name))
+                             .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var team in teamOrder)
         {
-            txBody.AppendChild(MakeParagraph(doc, name, bold: true));
-            foreach (var bullet in bullets)
-                txBody.AppendChild(MakeParagraph(doc, $"• {bullet}", bold: false));
+            if (!byTeam.TryGetValue(team, out var members) || members.Count == 0) continue;
+
+            // Bold team header
+            txBody.AppendChild(MakeParagraph(doc, team, bold: true));
+
+            foreach (var (name, bullets) in members)
+            {
+                // Indented person name (not bold, italic-style indent via spaces)
+                txBody.AppendChild(MakeParagraph(doc, $"  {name}", bold: false));
+                foreach (var bullet in bullets)
+                    txBody.AppendChild(MakeParagraph(doc, $"    • {bullet}", bold: false));
+            }
+
             txBody.AppendChild(MakeEmptyParagraph(doc));
         }
     }
