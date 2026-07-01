@@ -131,13 +131,9 @@ public class PowerPointService
             // Bold team header
             txBody.AppendChild(MakeParagraph(doc, team, bold: true));
 
-            foreach (var (name, bullets) in members)
-            {
-                // Indented person name (not bold, italic-style indent via spaces)
-                txBody.AppendChild(MakeParagraph(doc, $"  {name}", bold: false));
+            foreach (var (_, bullets) in members)
                 foreach (var bullet in bullets)
-                    txBody.AppendChild(MakeParagraph(doc, $"    • {bullet}", bold: false));
-            }
+                    txBody.AppendChild(MakeParagraph(doc, $"• {bullet}", bold: false));
 
             txBody.AppendChild(MakeEmptyParagraph(doc));
         }
