@@ -51,14 +51,20 @@ public class OllamaService
                 Their submitted updates:
                 {blocks}
 
-                Extract ONLY the specific activities, tasks, blockers, and next steps this person mentioned.
-                Output as concise bullet points. No invented content. No intro text. Bullets only.
-                If there is truly nothing substantive, output: (no updates)
+                Extract ALL specific activities, tasks, blockers, and next steps this person mentioned.
+                Output as concise bullet points starting with -. No invented content. No intro text. Bullets only.
+                You MUST produce at least one bullet. If details are sparse, summarize what little was provided.
                 """;
 
             var summary = await CallOllama(prompt, ct);
-            if (!string.IsNullOrWhiteSpace(summary) && !summary.Trim().StartsWith("(no updates)"))
-                personSummaries.Add((group.Key, summary.Trim()));
+            var trimmed = summary.Trim();
+            // Always include this person — fall back to a raw excerpt if Ollama produced nothing usable
+            if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("(no updates)", StringComparison.OrdinalIgnoreCase))
+            {
+                var fallbackLine = group.First().Subject;
+                trimmed = $"- {(string.IsNullOrWhiteSpace(fallbackLine) ? "Updates submitted" : fallbackLine)}";
+            }
+            personSummaries.Add((group.Key, trimmed));
         }
 
         // Step 2: Build the full report from individual summaries
