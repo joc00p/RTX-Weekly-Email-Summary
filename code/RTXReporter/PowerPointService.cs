@@ -41,20 +41,21 @@ public class PowerPointService
         nsm.AddNamespace("p", "http://schemas.openxmlformats.org/presentationml/2006/main");
         UpdateKeyAccomplishments(doc, nsm, reportText);
 
-        // Serialize back to string
-        var sb = new StringBuilder();
+        // Serialize to MemoryStream as UTF-8 so the XML declaration is correct
+        using var ms = new MemoryStream();
         var settings = new XmlWriterSettings { Encoding = new UTF8Encoding(false), Indent = false, OmitXmlDeclaration = false };
-        using (var xw = XmlWriter.Create(sb, settings))
+        using (var xw = XmlWriter.Create(ms, settings))
             doc.Save(xw);
 
-        // Replace the date on the final serialized XML (guaranteed to work after DOM round-trip)
-        var finalXml = UpdateDateInXml(sb.ToString(), weekLabel);
+        // Decode to string, replace the date, re-encode as UTF-8
+        var serialized = new UTF8Encoding(false).GetString(ms.ToArray());
+        var finalXml = UpdateDateInXml(serialized, weekLabel);
+        var finalBytes = new UTF8Encoding(false).GetBytes(finalXml);
 
         entry.Delete();
         var newEntry = archive.CreateEntry("ppt/slides/slide1.xml");
         using var entryStream = newEntry.Open();
-        var bytes = new UTF8Encoding(false).GetBytes(finalXml);
-        entryStream.Write(bytes, 0, bytes.Length);
+        entryStream.Write(finalBytes, 0, finalBytes.Length);
     }
 
     private static string UpdateDateInXml(string xmlText, string weekLabel)
