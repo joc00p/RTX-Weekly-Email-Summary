@@ -65,9 +65,10 @@ public class OllamaService
                 var fallbackLine = group.First().Subject;
                 trimmed = $"- {(string.IsNullOrWhiteSpace(fallbackLine) ? "Updates submitted" : fallbackLine)}";
             }
-            // Hard cap: keep at most 6 bullet lines
+            // Hard cap: keep at most 6 bullet lines; drop any mentioning Coopersmith
             var bulletLines = trimmed.Split('\n')
                 .Where(l => l.TrimStart().StartsWith('-') || l.TrimStart().StartsWith('•'))
+                .Where(l => !l.Contains("Coopersmith", StringComparison.OrdinalIgnoreCase))
                 .Take(6)
                 .ToList();
             if (bulletLines.Count > 0)
