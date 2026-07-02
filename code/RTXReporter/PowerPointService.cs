@@ -33,6 +33,9 @@ public class PowerPointService
         using (var reader = new StreamReader(entry.Open(), Encoding.UTF8))
             xmlText = reader.ReadToEnd();
 
+        // Replace the "as of" date directly in the raw XML — avoids namespace lookup fragility
+        xmlText = UpdateDateInXml(xmlText, weekLabel);
+
         var doc = new XmlDocument();
         doc.LoadXml(xmlText);
 
@@ -40,7 +43,6 @@ public class PowerPointService
         nsm.AddNamespace("a", NS);
         nsm.AddNamespace("p", "http://schemas.openxmlformats.org/presentationml/2006/main");
 
-        UpdateDateShape(doc, nsm, weekLabel);
         UpdateKeyAccomplishments(doc, nsm, reportText);
 
         entry.Delete();
@@ -58,22 +60,21 @@ public class PowerPointService
         newEntry.Open().Write(ms.ToArray(), 0, (int)ms.Length);
     }
 
-    private static void UpdateDateShape(XmlDocument doc, XmlNamespaceManager nsm, string weekLabel)
+    private static string UpdateDateInXml(string xmlText, string weekLabel)
     {
         // Extract the end date of the LAST selected week (handles multi-week labels)
         // weekLabel: "Week of Jun 23 - Jun 29, 2025" or "Week of ... through Week of Jun 23 - Jun 29, 2025"
-        var matches = Regex.Matches(weekLabel, @"-\s+(\w+ \d+,\s*\d+)");
-        if (matches.Count == 0) return;
-        if (!DateTime.TryParse(matches[^1].Groups[1].Value, out var endDate)) return;
+        var matches = Regex.Matches(weekLabel, @"-\s+(\w+\.?\s+\d+,?\s*\d{4})");
+        if (matches.Count == 0) return xmlText;
+        if (!DateTime.TryParse(matches[^1].Groups[1].Value,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AllowWhiteSpaces,
+                out var endDate)) return xmlText;
         var dateStr = endDate.ToString("MM/dd/yyyy");
 
-        // Find the text node containing "as of"
-        var textNodes = doc.SelectNodes("//a:t", nsm)!.Cast<XmlNode>()
-            .Where(n => n.InnerText.StartsWith("as of", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        foreach (var t in textNodes)
-            t.InnerText = $"as of {dateStr}";
+        // Replace "as of XX/XX/XXXX" directly in the raw XML string
+        return Regex.Replace(xmlText, @"as of \d{1,2}/\d{1,2}/\d{4}", $"as of {dateStr}",
+            RegexOptions.IgnoreCase);
     }
 
     // Maps last-name keywords → team label (case-insensitive substring match on full name)
