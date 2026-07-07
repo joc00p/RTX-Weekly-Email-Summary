@@ -389,7 +389,7 @@ public class MainForm : Form
             _lastWeekLabel = weekLabel;
             _copyBtn.Enabled = true;
             _saveBtn.Enabled = true;
-            _pptxBtn.Enabled = _pptx.TemplateExists;
+            _pptxBtn.Enabled = true;
             SetStatus($"Report ready — {weekLabel}.");
         }
         catch (OperationCanceledException)
@@ -452,6 +452,14 @@ public class MainForm : Form
 
     private void ExportPptx_Click(object? sender, EventArgs e)
     {
+        if (!_pptx.TemplateExists)
+        {
+            MessageBox.Show(
+                $"Template not found. Place your template file at:\n\n{_pptx.TemplatePath}",
+                "Template Missing", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
         var safe = string.Join("_", _lastWeekLabel.Split(System.IO.Path.GetInvalidFileNameChars()));
         using var dlg = new SaveFileDialog
         {

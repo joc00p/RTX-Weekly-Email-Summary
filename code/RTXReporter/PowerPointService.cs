@@ -22,6 +22,7 @@ public class PowerPointService
     }
 
     public bool TemplateExists => File.Exists(_templatePath);
+    public string TemplatePath => _templatePath;
 
     public void Export(string weekLabel, string reportText, string outputPath)
     {
