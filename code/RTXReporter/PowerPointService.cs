@@ -121,12 +121,30 @@ public class PowerPointService
             // Bold team header
             txBody.AppendChild(MakeParagraph(doc, team, bold: true));
 
-            // Collect all bullets from all members, cap at 5 per tower
+            // Round-robin: take 1 bullet from each member in turn, repeat until 5 total
             const int MaxPerTeam = 5;
+            var memberBullets = members
+                .Select(m => m.Bullets.Where(b => !string.IsNullOrWhiteSpace(b)).ToList())
+                .Where(b => b.Count > 0)
+                .ToList();
             var allBullets = new List<string>();
-            foreach (var (_, bullets) in members)
-                allBullets.AddRange(bullets.Where(b => !string.IsNullOrWhiteSpace(b)));
-            foreach (var bullet in allBullets.Take(MaxPerTeam))
+            int round = 0;
+            while (allBullets.Count < MaxPerTeam)
+            {
+                bool added = false;
+                foreach (var bullets in memberBullets)
+                {
+                    if (round < bullets.Count)
+                    {
+                        allBullets.Add(bullets[round]);
+                        added = true;
+                        if (allBullets.Count >= MaxPerTeam) break;
+                    }
+                }
+                if (!added) break;
+                round++;
+            }
+            foreach (var bullet in allBullets)
                 txBody.AppendChild(MakeParagraph(doc, $"• {bullet}", bold: false));
 
             txBody.AppendChild(MakeEmptyParagraph(doc));
