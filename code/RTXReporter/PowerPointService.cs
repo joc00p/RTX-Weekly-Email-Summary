@@ -148,6 +148,19 @@ public class PowerPointService
         foreach (var rawLine in text.Split('\n'))
         {
             var line = rawLine.Trim();
+
+            // Stop at the divider or any section heading (Summary, Executive Summary, etc.)
+            if (line.StartsWith("---") || line.StartsWith("###") || line.StartsWith("##"))
+            {
+                if (currentName != null)
+                {
+                    result.Add((currentName, currentBullets));
+                    currentName = null;
+                    currentBullets = new List<string>();
+                }
+                continue;
+            }
+
             if (line.StartsWith("**") && line.EndsWith("**") && line.Length > 4)
             {
                 if (currentName != null)
