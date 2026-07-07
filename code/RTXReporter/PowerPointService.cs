@@ -70,9 +70,12 @@ public class PowerPointService
                 out var endDate)) return xmlText;
         var dateStr = endDate.ToString("MM/dd/yyyy");
 
-        // Replace "as of XX/XX/XXXX" directly in the raw XML string
-        return Regex.Replace(xmlText, @"as of \d{1,2}/\d{1,2}/\d{4}", $"as of {dateStr}",
+        // Replace "as of XX/XX/XXXX" text run
+        xmlText = Regex.Replace(xmlText, @"as of \d{1,2}/\d{1,2}/\d{4}", $"as of {dateStr}",
             RegexOptions.IgnoreCase);
+        // Replace standalone date-only text run (the upper-right corner date)
+        xmlText = Regex.Replace(xmlText, @"(<a:t>)\d{1,2}/\d{1,2}/\d{4}(</a:t>)", $"${{1}}{dateStr}${{2}}");
+        return xmlText;
     }
 
     // Maps last-name keywords → team label (case-insensitive substring match on full name)

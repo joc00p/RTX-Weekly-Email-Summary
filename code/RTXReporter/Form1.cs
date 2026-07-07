@@ -165,6 +165,16 @@ public class MainForm : Form
         _split.Panel1.Controls.Add(_weekList);
         _split.Panel1.Controls.Add(_leftHeader);
 
+        var reportContextMenu = new ContextMenuStrip();
+        var copyMenuItem = new ToolStripMenuItem("Copy");
+        copyMenuItem.Click += (_, _) => { if (_reportBox.SelectionLength > 0) Clipboard.SetText(_reportBox.SelectedText); };
+        var selectAllMenuItem = new ToolStripMenuItem("Select All");
+        selectAllMenuItem.Click += (_, _) => _reportBox.SelectAll();
+        reportContextMenu.Items.Add(copyMenuItem);
+        reportContextMenu.Items.Add(new ToolStripSeparator());
+        reportContextMenu.Items.Add(selectAllMenuItem);
+        reportContextMenu.Opening += (_, _) => copyMenuItem.Enabled = _reportBox.SelectionLength > 0;
+
         _reportBox = new RichTextBox
         {
             Dock = DockStyle.Fill,
@@ -174,6 +184,7 @@ public class MainForm : Form
             ScrollBars = RichTextBoxScrollBars.Vertical,
             WordWrap = true,
             Padding = new Padding(12),
+            ContextMenuStrip = reportContextMenu,
         };
 
         _split.Panel2.Controls.Add(_reportBox);
