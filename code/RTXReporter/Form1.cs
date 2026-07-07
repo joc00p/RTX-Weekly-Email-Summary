@@ -63,7 +63,7 @@ public class MainForm : Form
     public MainForm()
     {
         _pptx = new PowerPointService(
-            @"C:\Users\joel.coopersmith\OneDrive - Accenture\NADC\RTX\Weekly Report Template.pptx",
+            Path.Combine(AppContext.BaseDirectory, "RTXReport", "RTX TEMPLATE.pptx"),
             _teamConfig);
         _ollama = new OllamaService();
         _ollama.StatusUpdate += msg => Invoke(() => SetStatus(msg));
