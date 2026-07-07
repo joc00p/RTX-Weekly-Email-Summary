@@ -48,8 +48,15 @@ public class TeamConfig
         var lower = senderName.ToLowerInvariant();
         foreach (var (team, members) in Teams)
             foreach (var m in members)
-                if (lower.Contains(m.ToLowerInvariant()) || m.ToLowerInvariant().Contains(lower))
+            {
+                var mLower = m.ToLowerInvariant();
+                if (lower.Contains(mLower) || mLower.Contains(lower))
                     return team;
+                // Handle "Last, First" vs "First Last" by matching individual name words
+                foreach (var word in mLower.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
+                    if (word.Length > 2 && lower.Contains(word))
+                        return team;
+            }
         return "Other";
     }
 
