@@ -15,7 +15,6 @@ class MainForm : Form
     readonly DataGridView grid = new();
     readonly Label lastRefreshedLabel = new();
     readonly ComboBox intervalCombo = new();
-    readonly Button refreshButton = new();
     readonly System.Windows.Forms.Timer pollTimer = new();
     readonly Dictionary<string, (long sent, long recv, DateTime when)> prevStats = new();
     readonly Label lblHost = new();
@@ -60,13 +59,7 @@ class MainForm : Form
             SetInterval(ms[intervalCombo.SelectedIndex]);
         };
 
-        refreshButton.Text = "Refresh Now";
-        refreshButton.Location = new(230, 9);
-        refreshButton.Width = 110;
-        refreshButton.Height = 28;
-        refreshButton.Click += (_, _) => Refresh();
-
-        toolbar.Controls.AddRange([intervalLabel, intervalCombo, refreshButton]);
+        toolbar.Controls.AddRange([intervalLabel, intervalCombo]);
         Controls.Add(toolbar);
     }
 
