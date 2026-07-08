@@ -83,9 +83,9 @@ class LauncherForm : Form
         var card = new Panel { BackColor = Color.White, Cursor = Cursors.Hand };
 
         card.Controls.AddRange([
-            new Label { Text = title, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = accent,                     AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 26), Location = new(12, 18) },
-            new Label { Text = sub,   Font = new Font("Segoe UI",  9f),                 ForeColor = Color.FromArgb(100, 100, 120), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 18), Location = new(12, 46) },
-            new Label { Text = desc,  Font = new Font("Segoe UI",  8.5f),               ForeColor = Color.FromArgb( 80,  80, 100), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 90), Location = new(12, 70) },
+            new Label { Text = title, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = accent,                     AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 26), Location = new(12, 38) },
+            new Label { Text = sub,   Font = new Font("Segoe UI",  9f),                 ForeColor = Color.FromArgb(100, 100, 120), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 18), Location = new(12, 66) },
+            new Label { Text = desc,  Font = new Font("Segoe UI",  8.5f),               ForeColor = Color.FromArgb( 80,  80, 100), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 90), Location = new(12, 90) },
         ]);
 
         card.Resize += (_, _) =>
