@@ -17,6 +17,7 @@ class MainForm : Form
     readonly ComboBox intervalCombo = new();
     readonly Button refreshButton = new();
     readonly System.Windows.Forms.Timer pollTimer = new();
+    readonly Dictionary<string, (long sent, long recv, DateTime when)> prevStats = new();
 
     public MainForm()
     {
@@ -83,9 +84,15 @@ class MainForm : Form
         grid.ColumnHeadersHeight = 30;
         grid.Cursor = Cursors.Default;
 
-        foreach (var (name, fillWeight) in new (string, int)[]
+        foreach (var (name, fillWeight, align) in new (string, int, DataGridViewContentAlignment)[]
         {
-            ("Name", 25), ("Status", 10), ("Speed (Mbps)", 12), ("MAC Address", 18), ("IP Addresses", 35),
+            ("Name",         20, DataGridViewContentAlignment.MiddleLeft),
+            ("Status",        8, DataGridViewContentAlignment.MiddleLeft),
+            ("Speed (Mbps)", 10, DataGridViewContentAlignment.MiddleLeft),
+            ("MAC Address",  15, DataGridViewContentAlignment.MiddleLeft),
+            ("IP Addresses", 25, DataGridViewContentAlignment.MiddleLeft),
+            ("↓ Recv",       11, DataGridViewContentAlignment.MiddleRight),
+            ("↑ Sent",       11, DataGridViewContentAlignment.MiddleRight),
         })
         {
             grid.Columns.Add(new DataGridViewTextBoxColumn
@@ -93,6 +100,8 @@ class MainForm : Form
                 HeaderText = name,
                 SortMode = DataGridViewColumnSortMode.NotSortable,
                 FillWeight = fillWeight,
+                DefaultCellStyle = { Alignment = align },
+                HeaderCell = { Style = { Alignment = align } },
             });
         }
 
@@ -176,7 +185,25 @@ class MainForm : Form
             var ipText = ips.Count > 0 ? string.Join("  |  ", ips) : "—";
             var isUp = nic.OperationalStatus == OperationalStatus.Up;
 
-            int row = grid.Rows.Add(nic.Name, nic.OperationalStatus.ToString(), speedMbps, macFormatted, ipText);
+            string recvStr = "—", sentStr = "—";
+            if (isUp)
+            {
+                try
+                {
+                    var stats = nic.GetIPStatistics();
+                    var now = DateTime.Now;
+                    if (prevStats.TryGetValue(nic.Name, out var prev) && (now - prev.when).TotalSeconds > 0)
+                    {
+                        double elapsed = (now - prev.when).TotalSeconds;
+                        recvStr = FormatRate((stats.BytesReceived - prev.recv) / elapsed);
+                        sentStr = FormatRate((stats.BytesSent - prev.sent) / elapsed);
+                    }
+                    prevStats[nic.Name] = (stats.BytesSent, stats.BytesReceived, now);
+                }
+                catch { }
+            }
+
+            int row = grid.Rows.Add(nic.Name, nic.OperationalStatus.ToString(), speedMbps, macFormatted, ipText, recvStr, sentStr);
             grid.Rows[row].DefaultCellStyle.BackColor = isUp
                 ? Color.FromArgb(220, 245, 220)
                 : Color.FromArgb(245, 220, 220);
@@ -187,6 +214,14 @@ class MainForm : Form
 
         lastRefreshedLabel.Text = $"Last refreshed: {DateTime.Now:HH:mm:ss}  |  {nics.Count} interface(s) found";
     }
+
+    static string FormatRate(double bytesPerSec) => bytesPerSec switch
+    {
+        < 0            => "—",
+        >= 1_048_576   => $"{bytesPerSec / 1_048_576:F1} MB/s",
+        >= 1_024       => $"{bytesPerSec / 1_024:F1} KB/s",
+        _              => $"{bytesPerSec:F0} B/s",
+    };
 }
 
 // ── Sniffer window ─────────────────────────────────────────────────────────
