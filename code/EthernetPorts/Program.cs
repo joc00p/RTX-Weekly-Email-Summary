@@ -70,7 +70,7 @@ class LauncherForm : Form
         {
             var (title, sub, desc, accent, open) = entries[i];
             var card = MakeCard(title, sub, desc, accent, open);
-            card.Margin = new(i < entries.Length - 1 ? 0 : 0, 0, i < entries.Length - 1 ? 8 : 0, 0);
+            card.Margin = new(0, 0, i < entries.Length - 1 ? 8 : 0, 0);
             card.Dock = DockStyle.Fill;
             table.Controls.Add(card, i, 0);
         }
@@ -96,8 +96,10 @@ class LauncherForm : Form
 
         card.Paint += (_, e) =>
         {
-            e.Graphics.FillRectangle(new SolidBrush(accent), 0, 0, card.Width, 5);
-            e.Graphics.DrawRectangle(new Pen(Color.FromArgb(215, 215, 220)), 0, 0, card.Width - 1, card.Height - 1);
+            using var br  = new SolidBrush(accent);
+            using var pen = new Pen(Color.FromArgb(215, 215, 220));
+            e.Graphics.FillRectangle(br,  0, 0, card.Width, 5);
+            e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
         };
 
         void SetBg(Color c) { card.BackColor = c; foreach (Control ctrl in card.Controls) ctrl.BackColor = c; }
@@ -134,6 +136,7 @@ class PingForm : Form
         BuildToolbar();
         BuildGrid();
         BuildStatusBar();
+        FormClosing += (_, _) => StopPing();
     }
 
     void BuildToolbar()
@@ -301,6 +304,7 @@ class TracerouteForm : Form
 
     Thread? traceThread;
     volatile bool tracing;
+    int traceSeq;
 
     public TracerouteForm()
     {
@@ -312,6 +316,7 @@ class TracerouteForm : Form
         BuildToolbar();
         BuildGrid();
         BuildStatusBar();
+        FormClosing += (_, _) => StopTrace();
     }
 
     void BuildToolbar()
@@ -401,7 +406,8 @@ class TracerouteForm : Form
         startStopButton.Text = "Stop";
         startStopButton.BackColor = Color.FromArgb(220, 80, 80);
 
-        traceThread = new Thread(() => TraceLoop(host)) { IsBackground = true };
+        int mySeq = ++traceSeq;
+        traceThread = new Thread(() => TraceLoop(host, mySeq)) { IsBackground = true };
         traceThread.Start();
     }
 
@@ -413,7 +419,7 @@ class TracerouteForm : Form
         hostBox.Enabled = true;
     }
 
-    void TraceLoop(string host)
+    void TraceLoop(string host, int seq)
     {
         using var pinger = new Ping();
         var buffer = new byte[32];
@@ -458,6 +464,7 @@ class TracerouteForm : Form
 
         BeginInvoke(() =>
         {
+            if (traceSeq != seq) return;
             tracing = false;
             startStopButton.Text = "Start";
             startStopButton.BackColor = Color.FromArgb(60, 160, 80);
@@ -678,6 +685,7 @@ class InterfaceForm : Form
             .ToList();
 
         grid.Rows.Clear();
+        double totalRecv = 0, totalSent = 0;
 
         foreach (var nic in nics)
         {
@@ -706,8 +714,12 @@ class InterfaceForm : Form
                     if (prevStats.TryGetValue(nic.Name, out var prev) && (now - prev.when).TotalSeconds > 0)
                     {
                         double elapsed = (now - prev.when).TotalSeconds;
-                        recvStr = FormatRate((stats.BytesReceived - prev.recv) / elapsed);
-                        sentStr = FormatRate((stats.BytesSent     - prev.sent) / elapsed);
+                        double recvRate = (stats.BytesReceived - prev.recv) / elapsed;
+                        double sentRate = (stats.BytesSent     - prev.sent) / elapsed;
+                        recvStr = FormatRate(recvRate);
+                        sentStr = FormatRate(sentRate);
+                        totalRecv += recvRate;
+                        totalSent += sentRate;
                     }
                     prevStats[nic.Name] = (stats.BytesSent, stats.BytesReceived, now);
                 }
@@ -724,22 +736,6 @@ class InterfaceForm : Form
 
         int upCount   = nics.Count(n => n.OperationalStatus == OperationalStatus.Up);
         int downCount = nics.Count - upCount;
-
-        double totalRecv = 0, totalSent = 0;
-        foreach (var nic in nics.Where(n => n.OperationalStatus == OperationalStatus.Up))
-        {
-            try
-            {
-                var stats = nic.GetIPStatistics();
-                if (prevStats.TryGetValue(nic.Name, out var prev) && (DateTime.Now - prev.when).TotalSeconds > 0)
-                {
-                    double elapsed = (DateTime.Now - prev.when).TotalSeconds;
-                    totalRecv += (stats.BytesReceived - prev.recv) / elapsed;
-                    totalSent += (stats.BytesSent     - prev.sent) / elapsed;
-                }
-            }
-            catch { }
-        }
 
         lblUp.Text    = upCount.ToString();
         lblUp.ForeColor   = upCount   > 0 ? Color.FromArgb(120, 230, 120) : Color.FromArgb(30, 30, 30);
@@ -772,6 +768,7 @@ class SnifferForm : Form
     readonly Button toggleButton = new();
     readonly Button clearButton = new();
     readonly TextBox filterBox = new();
+    volatile string filterSnapshot = "";
 
     readonly Queue<(DateTime time, string protocol, int bytes)> packetHistory = new();
     readonly object historyLock = new();
@@ -920,6 +917,7 @@ class SnifferForm : Form
         filterBox.Width = 220;
         filterBox.Font = new Font("Consolas", 9.5f);
         filterBox.PlaceholderText = "IP or protocol (e.g. 192.168 or TCP)";
+        filterBox.TextChanged += (_, _) => filterSnapshot = filterBox.Text.Trim();
 
         toolbar.Controls.AddRange([toggleButton, clearButton, filterLabel, filterBox]);
         Controls.Add(toolbar);
@@ -1041,7 +1039,7 @@ class SnifferForm : Form
                     packetHistory.Enqueue((DateTime.Now, packet.Protocol, packet.Length));
                 }
 
-                var filter = filterBox.Text.Trim();
+                var filter = filterSnapshot;
                 if (!string.IsNullOrEmpty(filter) && !PacketMatchesFilter(packet, filter))
                     continue;
 
