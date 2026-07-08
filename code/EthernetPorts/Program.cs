@@ -50,7 +50,7 @@ class MainForm : Form
         var intervalLabel = new Label { Text = "Poll interval:", AutoSize = true, Location = new(8, 14) };
 
         intervalCombo.Items.AddRange(["1 second", "5 seconds", "10 seconds", "30 seconds", "60 seconds"]);
-        intervalCombo.SelectedIndex = 1;
+        intervalCombo.SelectedIndex = 0;
         intervalCombo.DropDownStyle = ComboBoxStyle.DropDownList;
         intervalCombo.Location = new(95, 10);
         intervalCombo.Width = 120;
