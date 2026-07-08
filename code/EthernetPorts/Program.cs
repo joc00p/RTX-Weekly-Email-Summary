@@ -18,6 +18,11 @@ class MainForm : Form
     readonly Button refreshButton = new();
     readonly System.Windows.Forms.Timer pollTimer = new();
     readonly Dictionary<string, (long sent, long recv, DateTime when)> prevStats = new();
+    readonly Label lblHost = new();
+    readonly Label lblUp = new();
+    readonly Label lblDown = new();
+    readonly Label lblRecv = new();
+    readonly Label lblSent = new();
 
     public MainForm()
     {
@@ -27,6 +32,7 @@ class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
 
         BuildToolbar();
+        BuildSummaryBar();
         BuildGrid();
         BuildStatusBar();
 
@@ -62,6 +68,35 @@ class MainForm : Form
 
         toolbar.Controls.AddRange([intervalLabel, intervalCombo, refreshButton]);
         Controls.Add(toolbar);
+    }
+
+    void BuildSummaryBar()
+    {
+        var bar = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = Color.FromArgb(40, 40, 60) };
+
+        var boldFont = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        var valueFont = new Font("Segoe UI", 9.5f);
+
+        void AddKey(string text, int x) => bar.Controls.Add(new Label
+        {
+            Text = text, Font = boldFont, ForeColor = Color.FromArgb(160, 200, 255),
+            AutoSize = true, Location = new(x, 10),
+        });
+
+        void AddTile(Label lbl, string initial, int x)
+        {
+            lbl.Text = initial; lbl.Font = valueFont;
+            lbl.ForeColor = Color.White; lbl.AutoSize = true; lbl.Location = new(x, 10);
+            bar.Controls.Add(lbl);
+        }
+
+        AddKey("Host:", 10);          AddTile(lblHost,  System.Net.Dns.GetHostName(), 50);
+        AddKey("Up:",   240);         AddTile(lblUp,    "—", 268);
+        AddKey("Down:", 310);         AddTile(lblDown,  "—", 350);
+        AddKey("↓ Recv:", 410);       AddTile(lblRecv,  "—", 470);
+        AddKey("↑ Sent:", 550);       AddTile(lblSent,  "—", 608);
+
+        Controls.Add(bar);
     }
 
     void BuildGrid()
@@ -211,6 +246,32 @@ class MainForm : Form
             var tip = isUp ? "Double-click to snoop traffic" : "";
             grid.Rows[row].Cells[0].ToolTipText = tip;
         }
+
+        int upCount   = nics.Count(n => n.OperationalStatus == OperationalStatus.Up);
+        int downCount = nics.Count - upCount;
+
+        double totalRecv = 0, totalSent = 0;
+        foreach (var nic in nics.Where(n => n.OperationalStatus == OperationalStatus.Up))
+        {
+            try
+            {
+                var stats = nic.GetIPStatistics();
+                if (prevStats.TryGetValue(nic.Name, out var prev) && (DateTime.Now - prev.when).TotalSeconds > 0)
+                {
+                    double elapsed = (DateTime.Now - prev.when).TotalSeconds;
+                    totalRecv += (stats.BytesReceived - prev.recv) / elapsed;
+                    totalSent += (stats.BytesSent     - prev.sent) / elapsed;
+                }
+            }
+            catch { }
+        }
+
+        lblUp.Text    = upCount.ToString();
+        lblUp.ForeColor = upCount > 0 ? Color.FromArgb(120, 230, 120) : Color.White;
+        lblDown.Text  = downCount.ToString();
+        lblDown.ForeColor = downCount > 0 ? Color.FromArgb(255, 120, 120) : Color.White;
+        lblRecv.Text  = totalRecv > 0 ? FormatRate(totalRecv) : "—";
+        lblSent.Text  = totalSent > 0 ? FormatRate(totalSent) : "—";
 
         lastRefreshedLabel.Text = $"Last refreshed: {DateTime.Now:HH:mm:ss}  |  {nics.Count} interface(s) found";
     }
