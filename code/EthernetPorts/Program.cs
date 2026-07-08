@@ -15,9 +15,8 @@ class LauncherForm : Form
     public LauncherForm()
     {
         Text = "Network Tools";
-        Size = new(580, 380);
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
+        Size = new(620, 340);
+        MinimumSize = new(480, 280);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = Color.FromArgb(245, 246, 248);
 
@@ -30,7 +29,7 @@ class LauncherForm : Form
         Controls.Add(new Panel
         {
             Dock = DockStyle.Top,
-            Height = 64,
+            Height = 48,
             BackColor = Color.FromArgb(40, 40, 60),
             Controls =
             {
@@ -38,9 +37,9 @@ class LauncherForm : Form
                 {
                     Text = "Network Tools",
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 17f, FontStyle.Bold),
+                    Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                     AutoSize = true,
-                    Location = new(20, 16),
+                    Location = new(16, 12),
                 },
             },
         });
@@ -48,47 +47,56 @@ class LauncherForm : Form
 
     void BuildCards()
     {
-        var flow = new FlowLayoutPanel
+        var table = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false,
-            Padding = new(22, 22, 0, 0),
+            ColumnCount = 3,
+            RowCount = 1,
+            Padding = new(16, 14, 16, 14),
+        };
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.4f));
+        table.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+        var entries = new (string title, string sub, string desc, Color accent, Action open)[]
+        {
+            ("PING",       "a Host",          "Test reachability and measure\nround-trip time to any\nhostname or IP address.",       Color.FromArgb( 55, 135, 255), () => new PingForm().Show()),
+            ("TRACEROUTE", "a Host",          "Map each network hop on the\npath to a destination and\nmeasure latency per hop.",     Color.FromArgb( 45, 175,  85), () => new TracerouteForm().Show()),
+            ("INTERFACES", "Show Interfaces", "View Ethernet interfaces,\nmonitor live traffic volume,\nand snoop packets.",          Color.FromArgb(155,  75, 220), () => new InterfaceForm().Show()),
         };
 
-        foreach (var (title, sub, desc, accent, open) in new (string, string, string, Color, Action)[]
+        for (int i = 0; i < entries.Length; i++)
         {
-            ("PING",        "a Host",          "Test reachability and\nmeasure round-trip\ntime to any hostname\nor IP address.",               Color.FromArgb( 55, 135, 255), () => new PingForm().Show()),
-            ("TRACEROUTE",  "a Host",          "Map each network hop\non the path to a\ndestination and\nmeasure latency.",                    Color.FromArgb( 45, 175,  85), () => new TracerouteForm().Show()),
-            ("INTERFACES",  "Show Interfaces", "View Ethernet interfaces,\nmonitor live traffic\nvolume, and snoop\npackets in real time.",     Color.FromArgb(155,  75, 220), () => new InterfaceForm().Show()),
-        })
-        {
-            flow.Controls.Add(MakeCard(title, sub, desc, accent, open));
+            var (title, sub, desc, accent, open) = entries[i];
+            var card = MakeCard(title, sub, desc, accent, open);
+            card.Margin = new(i < entries.Length - 1 ? 0 : 0, 0, i < entries.Length - 1 ? 8 : 0, 0);
+            card.Dock = DockStyle.Fill;
+            table.Controls.Add(card, i, 0);
         }
 
-        Controls.Add(flow);
+        Controls.Add(table);
     }
 
     static Panel MakeCard(string title, string sub, string desc, Color accent, Action open)
     {
-        var card = new Panel
-        {
-            Width = 160,
-            Height = 240,
-            Margin = new(0, 0, 16, 0),
-            BackColor = Color.White,
-            Cursor = Cursors.Hand,
-        };
+        var card = new Panel { BackColor = Color.White, Cursor = Cursors.Hand };
 
         card.Controls.AddRange([
-            new Label { Text = title,  Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = accent,                    AutoSize = false, Size = new(140, 26), Location = new(12, 22) },
-            new Label { Text = sub,    Font = new Font("Segoe UI",  9f),                  ForeColor = Color.FromArgb(100,100,120), AutoSize = false, Size = new(140, 20), Location = new(12, 50) },
-            new Label { Text = desc,   Font = new Font("Segoe UI",  8.5f),                ForeColor = Color.FromArgb( 80, 80,100), AutoSize = false, Size = new(136,120), Location = new(12, 80) },
+            new Label { Text = title, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = accent,                     AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 26), Location = new(12, 18) },
+            new Label { Text = sub,   Font = new Font("Segoe UI",  9f),                 ForeColor = Color.FromArgb(100, 100, 120), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 18), Location = new(12, 46) },
+            new Label { Text = desc,  Font = new Font("Segoe UI",  8.5f),               ForeColor = Color.FromArgb( 80,  80, 100), AutoSize = false, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, Size = new(10, 90), Location = new(12, 70) },
         ]);
+
+        card.Resize += (_, _) =>
+        {
+            foreach (Control c in card.Controls)
+                c.Width = card.Width - 24;
+        };
 
         card.Paint += (_, e) =>
         {
-            e.Graphics.FillRectangle(new SolidBrush(accent), 0, 0, card.Width, 6);
+            e.Graphics.FillRectangle(new SolidBrush(accent), 0, 0, card.Width, 5);
             e.Graphics.DrawRectangle(new Pen(Color.FromArgb(215, 215, 220)), 0, 0, card.Width - 1, card.Height - 1);
         };
 
