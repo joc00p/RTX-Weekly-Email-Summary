@@ -131,7 +131,7 @@ public class OllamaService
             - [items pending]
 
             ### Executive Summary
-            [3-5 sentences of professional prose for senior leadership covering accomplishments and outlook by tower. Do not mention risks, issues, or blockers. Do not name individuals.]
+            [3-5 sentences of high-level professional prose for senior leadership. Focus on overall team progress and key accomplishments. Only mention a specific tower if it adds meaningful context — do not list or enumerate every tower. Do not mention risks, issues, or blockers. Do not name individuals.]
             """;
 
         var execSummary = StripRiskLines(await CallOllama(execPrompt, ct));
