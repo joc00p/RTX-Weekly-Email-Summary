@@ -55,6 +55,7 @@ public class OllamaService
                 Output as concise bullet points starting with -. No invented content. No intro text. Bullets only.
                 You MUST produce at least one bullet and NO MORE THAN 6 bullets total.
                 If details are sparse, summarize what little was provided.
+                Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
                 """;
 
             var summary = await CallOllama(prompt, ct);
@@ -69,6 +70,7 @@ public class OllamaService
             var bulletLines = trimmed.Split('\n')
                 .Where(l => l.TrimStart().StartsWith('-') || l.TrimStart().StartsWith('•'))
                 .Where(l => !l.Contains("Coopersmith", StringComparison.OrdinalIgnoreCase))
+                .Where(l => !l.Contains("punch list", StringComparison.OrdinalIgnoreCase))
                 .Take(6)
                 .ToList();
             if (bulletLines.Count == 0)
@@ -99,6 +101,7 @@ public class OllamaService
             Individual team member updates:
             {teamSection}
 
+            Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
             Write ONLY these two sections exactly as formatted:
 
             ### Summary
@@ -124,7 +127,15 @@ public class OllamaService
         report.AppendLine();
         report.AppendLine(execSummary.Trim());
 
-        return CleanBulletSpacing(report.ToString());
+        return CleanBulletSpacing(RemoveBannedPhrases(report.ToString()));
+    }
+
+    private static string RemoveBannedPhrases(string text)
+    {
+        var lines = text.Split('\n');
+        var kept = lines.Where(l =>
+            !l.Contains("punch list", StringComparison.OrdinalIgnoreCase));
+        return string.Join("\n", kept);
     }
 
     private static string CleanBulletSpacing(string text)
