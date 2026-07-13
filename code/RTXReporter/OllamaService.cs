@@ -107,11 +107,11 @@ public class OllamaService
             ### Summary
             - [overall team progress]
             - [key accomplishments]
-            - [active risks or issues]
             - [items pending]
+            Only add a risks/issues bullet if a risk, blocker, or problem is explicitly stated in the updates above. Do not invent or infer risks.
 
             ### Executive Summary
-            [3-5 sentences of professional prose for senior leadership covering accomplishments, risks, and outlook]
+            [3-5 sentences of professional prose for senior leadership covering accomplishments and outlook. Only mention risks if they are explicitly stated in the updates above.]
             """;
 
         var execSummary = await CallOllama(execPrompt, ct);
