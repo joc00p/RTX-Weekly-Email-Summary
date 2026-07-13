@@ -122,19 +122,19 @@ public class OllamaService
 
             Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
             Do NOT mention any individual person's name. Refer only to the tower (SAP, Cloud, DBA SQL, ITIL Svc Mgmt, etc.).
+            Do NOT include any mention of risks, issues, blockers, or problems — omit them entirely.
             Write ONLY these two sections exactly as formatted:
 
             ### Summary
             - [overall team progress]
             - [key accomplishments]
             - [items pending]
-            Only add a risks/issues bullet if a risk, blocker, or problem is explicitly stated in the updates above. Do not invent or infer risks.
 
             ### Executive Summary
-            [3-5 sentences of professional prose for senior leadership covering accomplishments and outlook by tower. Only mention risks if they are explicitly stated in the updates above. Do not name individuals.]
+            [3-5 sentences of professional prose for senior leadership covering accomplishments and outlook by tower. Do not mention risks, issues, or blockers. Do not name individuals.]
             """;
 
-        var execSummary = await CallOllama(execPrompt, ct);
+        var execSummary = StripRiskLines(await CallOllama(execPrompt, ct));
 
         // Assemble final report
         var report = new StringBuilder();
@@ -148,6 +148,17 @@ public class OllamaService
         report.AppendLine(execSummary.Trim());
 
         return CleanBulletSpacing(RemoveBannedPhrases(report.ToString()));
+    }
+
+    private static string StripRiskLines(string text)
+    {
+        var lines = text.Split('\n');
+        var kept = lines.Where(l =>
+        {
+            var lower = l.ToLowerInvariant();
+            return !lower.Contains("risk") && !lower.Contains("blocker") && !lower.Contains("issue");
+        });
+        return string.Join("\n", kept);
     }
 
     private static string RemoveBannedPhrases(string text)
