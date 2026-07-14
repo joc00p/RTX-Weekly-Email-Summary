@@ -22,9 +22,9 @@ public class MainForm : Form
     private ListBox _weekList = null!;
     private RichTextBox _reportBox = null!;
     private Button _generateBtn = null!;
-    private Button _copyBtn = null!;
-    private Button _saveBtn = null!;
-    private Button _pptxBtn = null!;
+    private ToolStripMenuItem _copyMenuItem = null!;
+    private ToolStripMenuItem _saveMenuItem = null!;
+    private ToolStripMenuItem _pptxMenuItem = null!;
     private ThemeToggle _themeToggle = null!;
     private Label _statusLabel = null!;
     private Label _leftHeader = null!;
@@ -77,26 +77,38 @@ public class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Segoe UI", 10f);
 
-        _toolbar = new Panel { Dock = DockStyle.Top, Height = 50 };
+        // Menu strip
+        var menuStrip = new MenuStrip { Dock = DockStyle.Top };
+        MainMenuStrip = menuStrip;
 
-        var reloadBtn = MakeButton("Reload", Color.FromArgb(70, 130, 180));
-        reloadBtn.Click += LoadEmails_Click;
+        _copyMenuItem  = new ToolStripMenuItem("Copy")       { Enabled = false, ShortcutKeys = Keys.Control | Keys.C };
+        _saveMenuItem  = new ToolStripMenuItem("Save As...")  { Enabled = false, ShortcutKeys = Keys.Control | Keys.S };
+        _pptxMenuItem  = new ToolStripMenuItem("Export PPTX") { Enabled = false };
+        var reloadItem = new ToolStripMenuItem("Reload")      { ShortcutKeys = Keys.F5 };
+
+        _copyMenuItem.Click  += (_, _) => Clipboard.SetText(_reportBox.Text);
+        _saveMenuItem.Click  += SaveReport_Click;
+        _pptxMenuItem.Click  += ExportPptx_Click;
+        reloadItem.Click     += LoadEmails_Click;
+
+        var fileMenu = new ToolStripMenuItem("File");
+        fileMenu.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            reloadItem,
+            new ToolStripSeparator(),
+            _copyMenuItem,
+            _saveMenuItem,
+            new ToolStripSeparator(),
+            _pptxMenuItem,
+        });
+        menuStrip.Items.Add(fileMenu);
+
+        // Toolbar
+        _toolbar = new Panel { Dock = DockStyle.Top, Height = 50 };
 
         _generateBtn = MakeButton("Generate Report", Color.FromArgb(16, 137, 62));
         _generateBtn.Enabled = false;
         _generateBtn.Click += GenerateReport_Click;
-
-        _copyBtn = MakeButton("Copy", Color.FromArgb(70, 130, 180));
-        _copyBtn.Enabled = false;
-        _copyBtn.Click += (_, _) => Clipboard.SetText(_reportBox.Text);
-
-        _saveBtn = MakeButton("Save As...", Color.FromArgb(70, 130, 180));
-        _saveBtn.Enabled = false;
-        _saveBtn.Click += SaveReport_Click;
-
-        _pptxBtn = MakeButton("Export PPTX", Color.FromArgb(180, 80, 20));
-        _pptxBtn.Enabled = false;
-        _pptxBtn.Click += ExportPptx_Click;
 
         var teamsBtn = MakeButton("Manage Teams", Color.FromArgb(100, 70, 160));
         teamsBtn.Click += ManageTeams_Click;
@@ -109,7 +121,7 @@ public class MainForm : Form
         _themeToggle.ThemeChanged += ThemeBtn_Click;
 
         int x = 10;
-        foreach (var btn in new Control[] { reloadBtn, _generateBtn, _copyBtn, _saveBtn, _pptxBtn, teamsBtn, settingsBtn })
+        foreach (var btn in new Control[] { _generateBtn, teamsBtn, settingsBtn })
         {
             btn.Left = x;
             btn.Top = 10;
@@ -118,6 +130,8 @@ public class MainForm : Form
         }
         _toolbar.Controls.Add(_themeToggle);
         _toolbar.Resize += (_, _) => _themeToggle.Left = _toolbar.Width - _themeToggle.Width - 10;
+
+        Controls.Add(menuStrip);
 
         _statusBar = new Panel { Dock = DockStyle.Bottom, Height = 28 };
 
@@ -266,8 +280,9 @@ public class MainForm : Form
         _weekList.Items.Clear();
         _reportBox.Clear();
         _generateBtn.Enabled = false;
-        _copyBtn.Enabled = false;
-        _saveBtn.Enabled = false;
+        _copyMenuItem.Enabled = false;
+        _saveMenuItem.Enabled = false;
+        _pptxMenuItem.Enabled = false;
         _reportCache.Clear();
 
         try
@@ -390,9 +405,9 @@ public class MainForm : Form
             _reportCache[cacheKey] = report;
             ShowReport(report);
             _lastWeekLabel = weekLabel;
-            _copyBtn.Enabled = true;
-            _saveBtn.Enabled = true;
-            _pptxBtn.Enabled = true;
+            _copyMenuItem.Enabled = true;
+            _saveMenuItem.Enabled = true;
+            _pptxMenuItem.Enabled = true;
             SetStatus($"Report ready — {weekLabel}.");
         }
         catch (OperationCanceledException)
