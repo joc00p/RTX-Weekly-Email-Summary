@@ -13,6 +13,7 @@ public class MainForm : Form
     private readonly OllamaService _ollama;
     private readonly TeamConfig _teamConfig = new();
     private readonly PowerPointService _pptx;
+    private readonly AppSettings _appSettings = AppSettings.Load();
 
     private Dictionary<string, List<EmailItem>> _emailsByWeek = new();
     private readonly Dictionary<string, string> _reportCache = new();
@@ -62,9 +63,7 @@ public class MainForm : Form
 
     public MainForm()
     {
-        _pptx = new PowerPointService(
-            Path.Combine(AppContext.BaseDirectory, "RTXReport", "RTX TEMPLATE.pptx"),
-            _teamConfig);
+        _pptx = new PowerPointService(_appSettings.TemplatePath, _teamConfig);
         _ollama = new OllamaService(_teamConfig);
         _ollama.StatusUpdate += msg => Invoke(() => SetStatus(msg));
         BuildUI();
@@ -102,11 +101,15 @@ public class MainForm : Form
         var teamsBtn = MakeButton("Manage Teams", Color.FromArgb(100, 70, 160));
         teamsBtn.Click += ManageTeams_Click;
 
+        var settingsBtn = MakeButton("Settings", Color.FromArgb(80, 80, 80));
+        settingsBtn.Width = 90;
+        settingsBtn.Click += Settings_Click;
+
         _themeToggle = new ThemeToggle { Top = 10 };
         _themeToggle.ThemeChanged += ThemeBtn_Click;
 
         int x = 10;
-        foreach (var btn in new[] { reloadBtn, _generateBtn, _copyBtn, _saveBtn, _pptxBtn, teamsBtn })
+        foreach (var btn in new Control[] { reloadBtn, _generateBtn, _copyBtn, _saveBtn, _pptxBtn, teamsBtn, settingsBtn })
         {
             btn.Left = x;
             btn.Top = 10;
@@ -491,6 +494,13 @@ public class MainForm : Form
 
         using var dlg = new ManageTeamsForm(_teamConfig, senders, q => _outlook.SearchAddressBook(q));
         dlg.ShowDialog(this);
+    }
+
+    private void Settings_Click(object? sender, EventArgs e)
+    {
+        using var dlg = new SettingsForm(_appSettings);
+        if (dlg.ShowDialog(this) == DialogResult.OK)
+            _pptx.TemplatePath = _appSettings.TemplatePath;
     }
 
     private void SetBusy(bool busy, string msg)

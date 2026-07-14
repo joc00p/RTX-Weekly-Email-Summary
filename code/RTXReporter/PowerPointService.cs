@@ -11,7 +11,7 @@ namespace RTXReporter;
 
 public class PowerPointService
 {
-    private readonly string _templatePath;
+    private string _templatePath;
     private readonly TeamConfig _teamConfig;
     private const string NS = "http://schemas.openxmlformats.org/drawingml/2006/main";
 
@@ -22,7 +22,7 @@ public class PowerPointService
     }
 
     public bool TemplateExists => File.Exists(_templatePath);
-    public string TemplatePath => _templatePath;
+    public string TemplatePath { get => _templatePath; set => _templatePath = value; }
 
     public void Export(string weekLabel, string reportText, string outputPath)
     {
