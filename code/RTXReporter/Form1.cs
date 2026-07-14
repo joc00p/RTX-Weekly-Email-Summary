@@ -21,7 +21,7 @@ public class MainForm : Form
 
     private ListBox _weekList = null!;
     private RichTextBox _reportBox = null!;
-    private Button _generateBtn = null!;
+    private ToolStripMenuItem _generateMenuItem = null!;
     private ToolStripMenuItem _copyMenuItem = null!;
     private ToolStripMenuItem _saveMenuItem = null!;
     private ToolStripMenuItem _pptxMenuItem = null!;
@@ -81,15 +81,18 @@ public class MainForm : Form
         var menuStrip = new MenuStrip { Dock = DockStyle.Top };
         MainMenuStrip = menuStrip;
 
-        _copyMenuItem  = new ToolStripMenuItem("Copy")       { Enabled = false, ShortcutKeys = Keys.Control | Keys.C };
-        _saveMenuItem  = new ToolStripMenuItem("Save As...")  { Enabled = false, ShortcutKeys = Keys.Control | Keys.S };
-        _pptxMenuItem  = new ToolStripMenuItem("Export PPTX") { Enabled = false };
-        var reloadItem = new ToolStripMenuItem("Reload")      { ShortcutKeys = Keys.F5 };
+        // File menu
+        _copyMenuItem  = new ToolStripMenuItem("Copy")        { Enabled = false, ShortcutKeys = Keys.Control | Keys.C };
+        _saveMenuItem  = new ToolStripMenuItem("Save As...")   { Enabled = false, ShortcutKeys = Keys.Control | Keys.S };
+        _pptxMenuItem  = new ToolStripMenuItem("Export PPTX")  { Enabled = false };
+        var reloadItem = new ToolStripMenuItem("Reload")       { ShortcutKeys = Keys.F5 };
+        var settingsItem = new ToolStripMenuItem("Settings");
 
-        _copyMenuItem.Click  += (_, _) => Clipboard.SetText(_reportBox.Text);
-        _saveMenuItem.Click  += SaveReport_Click;
-        _pptxMenuItem.Click  += ExportPptx_Click;
-        reloadItem.Click     += LoadEmails_Click;
+        _copyMenuItem.Click   += (_, _) => Clipboard.SetText(_reportBox.Text);
+        _saveMenuItem.Click   += SaveReport_Click;
+        _pptxMenuItem.Click   += ExportPptx_Click;
+        reloadItem.Click      += LoadEmails_Click;
+        settingsItem.Click    += Settings_Click;
 
         var fileMenu = new ToolStripMenuItem("File");
         fileMenu.DropDownItems.AddRange(new ToolStripItem[]
@@ -100,34 +103,34 @@ public class MainForm : Form
             _saveMenuItem,
             new ToolStripSeparator(),
             _pptxMenuItem,
+            new ToolStripSeparator(),
+            settingsItem,
         });
+
+        // Report menu
+        _generateMenuItem = new ToolStripMenuItem("Generate Report") { Enabled = false, ShortcutKeys = Keys.F9 };
+        var teamsItem = new ToolStripMenuItem("Manage Teams");
+
+        _generateMenuItem.Click += GenerateReport_Click;
+        teamsItem.Click         += ManageTeams_Click;
+
+        var reportMenu = new ToolStripMenuItem("Report");
+        reportMenu.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            _generateMenuItem,
+            new ToolStripSeparator(),
+            teamsItem,
+        });
+
         menuStrip.Items.Add(fileMenu);
+        menuStrip.Items.Add(reportMenu);
 
-        // Toolbar
-        _toolbar = new Panel { Dock = DockStyle.Top, Height = 50 };
+        // Toolbar — theme toggle only
+        _toolbar = new Panel { Dock = DockStyle.Top, Height = 36 };
 
-        _generateBtn = MakeButton("Generate Report", Color.FromArgb(16, 137, 62));
-        _generateBtn.Enabled = false;
-        _generateBtn.Click += GenerateReport_Click;
-
-        var teamsBtn = MakeButton("Manage Teams", Color.FromArgb(100, 70, 160));
-        teamsBtn.Click += ManageTeams_Click;
-
-        var settingsBtn = MakeButton("Settings", Color.FromArgb(80, 80, 80));
-        settingsBtn.Width = 90;
-        settingsBtn.Click += Settings_Click;
-
-        _themeToggle = new ThemeToggle { Top = 10 };
+        _themeToggle = new ThemeToggle { Top = 6 };
         _themeToggle.ThemeChanged += ThemeBtn_Click;
 
-        int x = 10;
-        foreach (var btn in new Control[] { _generateBtn, teamsBtn, settingsBtn })
-        {
-            btn.Left = x;
-            btn.Top = 10;
-            _toolbar.Controls.Add(btn);
-            x += btn.Width + 6;
-        }
         _toolbar.Controls.Add(_themeToggle);
         _toolbar.Resize += (_, _) => _themeToggle.Left = _toolbar.Width - _themeToggle.Width - 10;
 
@@ -279,7 +282,7 @@ public class MainForm : Form
         SetBusy(true, "Loading emails from Outlook...");
         _weekList.Items.Clear();
         _reportBox.Clear();
-        _generateBtn.Enabled = false;
+        _generateMenuItem.Enabled = false;
         _copyMenuItem.Enabled = false;
         _saveMenuItem.Enabled = false;
         _pptxMenuItem.Enabled = false;
@@ -310,7 +313,7 @@ public class MainForm : Form
     {
         int count = _weekList.SelectedItems.Count;
         if (count == 0) return;
-        _generateBtn.Enabled = true;
+        _generateMenuItem.Enabled = true;
 
         var selectedWeeks = new List<string>();
         foreach (var item in _weekList.SelectedItems)
@@ -396,7 +399,7 @@ public class MainForm : Form
             : $"{selectedWeeks[^1]} through {selectedWeeks[0]}";
 
         SetBusy(true, $"Generating report for {weekLabel} ({allEmails.Count} email(s))...");
-        _generateBtn.Enabled = false;
+        _generateMenuItem.Enabled = false;
 
         try
         {
@@ -422,7 +425,7 @@ public class MainForm : Form
         finally
         {
             SetBusy(false, "");
-            _generateBtn.Enabled = true;
+            _generateMenuItem.Enabled = true;
         }
     }
 
