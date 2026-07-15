@@ -1,0 +1,7 @@
+# User-specific IDE / MSBuild files
+*.csproj.user
+
+# .NET build output
+bin/
+obj/
+publish/

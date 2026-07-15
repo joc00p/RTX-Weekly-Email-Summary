@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace RTXReporter;
+namespace Reporter;
 
 public class OllamaService
 {

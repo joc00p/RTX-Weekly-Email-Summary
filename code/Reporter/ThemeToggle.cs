@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace RTXReporter;
+namespace Reporter;
 
 public class ThemeToggle : Control
 {

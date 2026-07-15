@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace RTXReporter;
+namespace Reporter;
 
 public record EmailItem(string Subject, string From, string Received, string Body);
 

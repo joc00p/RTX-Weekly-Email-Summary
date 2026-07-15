@@ -1,4 +1,4 @@
-namespace RTXReporter;
+namespace Reporter;
 
 static class Program
 {
