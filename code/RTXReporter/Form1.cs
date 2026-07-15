@@ -331,10 +331,18 @@ public class MainForm : Form
         if (_reportCache.TryGetValue(cacheKey, out var cached))
         {
             ShowReport(cached);
+            _copyMenuItem.Enabled = true;
+            _saveMenuItem.Enabled = true;
+            _pptxMenuItem.Enabled = true;
             SetStatus($"Cached report — {_lastWeekLabel}.");
             return;
         }
 
+        // Showing raw previews, not a generated report — Save As / Export PPTX would
+        // produce a broken deck from preview text, so disable them until Generate runs.
+        _saveMenuItem.Enabled = false;
+        _pptxMenuItem.Enabled = false;
+        _copyMenuItem.Enabled = true;
         ShowEmailPreviews(selectedWeeks);
     }
 
@@ -392,7 +400,8 @@ public class MainForm : Form
         if (selectedWeeks.Count == 0) return;
 
         _cts?.Cancel();
-        _cts = new CancellationTokenSource();
+        var cts = new CancellationTokenSource();
+        _cts = cts;
 
         var allEmails = new List<EmailItem>();
         foreach (var w in selectedWeeks)
@@ -407,7 +416,8 @@ public class MainForm : Form
 
         try
         {
-            var report = await _ollama.SummarizeWeekAsync(weekLabel, allEmails, _cts.Token);
+            var report = await _ollama.SummarizeWeekAsync(weekLabel, allEmails, cts.Token);
+            if (_cts != cts) return; // superseded by a newer generation — let it own the UI
             string cacheKey = string.Join("|", selectedWeeks);
             _reportCache[cacheKey] = report;
             ShowReport(report);
@@ -419,17 +429,25 @@ public class MainForm : Form
         }
         catch (OperationCanceledException)
         {
-            SetStatus("Generation cancelled.");
+            if (_cts == cts) SetStatus("Generation cancelled.");
         }
         catch (Exception ex)
         {
+            if (_cts != cts) return; // superseded — don't clobber the newer run's state
             MessageBox.Show($"Ollama error:\n\n{ex.Message}\n\nMake sure Ollama is running on localhost:11434.", "Ollama Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             SetStatus("Error generating report.");
         }
         finally
         {
-            SetBusy(false, "");
-            _generateMenuItem.Enabled = true;
+            if (_cts == cts)
+            {
+                SetBusy(false, "");
+                _generateMenuItem.Enabled = true;
+            }
+            else
+            {
+                cts.Dispose(); // this run was superseded; release its own CTS
+            }
         }
     }
 

@@ -50,12 +50,23 @@ public class TeamConfig
             foreach (var m in members)
             {
                 var mLower = m.ToLowerInvariant();
-                if (lower.Contains(mLower) || mLower.Contains(lower))
+
+                // High-confidence: the full member name appears in the sender string
+                if (lower.Contains(mLower))
                     return team;
-                // Handle "Last, First" vs "First Last" by matching individual name words
-                foreach (var word in mLower.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
-                    if (word.Length > 2 && lower.Contains(word))
-                        return team;
+
+                // Otherwise require at least two of the member's name parts to appear
+                // (handles "Last, First" vs "First Last" and nicknames, while preventing a
+                // shared first name alone from bucketing a different person into this tower).
+                var tokens = mLower
+                    .Split(new[] { ' ', ',', '.' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(w => w.Length >= 2)
+                    .ToList();
+                if (tokens.Count == 0) continue;
+                int need = Math.Min(2, tokens.Count);
+                int hits = tokens.Count(w => lower.Contains(w));
+                if (hits >= need)
+                    return team;
             }
         return "Other";
     }

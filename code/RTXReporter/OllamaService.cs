@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -150,14 +151,45 @@ public class OllamaService
         return CleanBulletSpacing(RemoveBannedPhrases(report.ToString()));
     }
 
+    // Matches a risk *label* line: an optional bullet, a risk keyword, then a colon/dash.
+    // e.g. "Risks/issues:", "- Risk: foo", "Blockers -", "Open issues:"
+    private static readonly Regex RiskLabelRegex = new(
+        @"^\s*(?:[-•*]\s*)?(?:risks?|blockers?|issues?|open\s+issues?|outstanding\s+issues?|concerns?|risks?\s*/\s*issues?)\s*[:\-–—]",
+        RegexOptions.IgnoreCase);
+
+    // Matches a bare risk *heading* line with no trailing detail. e.g. "Risks", "Risks/Issues"
+    private static readonly Regex RiskHeadingRegex = new(
+        @"^\s*(?:[-•*]\s*)?(?:risks?|blockers?|risks?\s*/\s*issues?)\s*$",
+        RegexOptions.IgnoreCase);
+
+    // Removes hallucinated risk sections without touching prose that merely mentions
+    // an "issue" (e.g. "resolved the DNS issue", "certificate was issued").
     private static string StripRiskLines(string text)
     {
         var lines = text.Split('\n');
-        var kept = lines.Where(l =>
+        var kept = new List<string>();
+        bool inRiskBlock = false;
+
+        foreach (var line in lines)
         {
-            var lower = l.ToLowerInvariant();
-            return !lower.Contains("risk") && !lower.Contains("blocker") && !lower.Contains("issue");
-        });
+            // A risk label/heading opens a block we drop (the label plus any bullets under it)
+            if (RiskLabelRegex.IsMatch(line) || RiskHeadingRegex.IsMatch(line))
+            {
+                inRiskBlock = true;
+                continue;
+            }
+
+            if (inRiskBlock)
+            {
+                var t = line.TrimStart();
+                if (t.StartsWith('-') || t.StartsWith('•') || t.StartsWith('*'))
+                    continue; // still inside the risk bullet list
+                inRiskBlock = false; // block ended — fall through and keep this line
+            }
+
+            kept.Add(line);
+        }
+
         return string.Join("\n", kept);
     }
 
