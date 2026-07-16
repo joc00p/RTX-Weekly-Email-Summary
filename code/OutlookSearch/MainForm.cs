@@ -41,6 +41,14 @@ public class MainForm : Form
         Value = DateTime.Today,
         Width = 125
     };
+    private readonly Button _clearDatesBtn = new()
+    {
+        Text = "Clear",
+        Width = 55,
+        Height = 24,
+        Enabled = false,
+        Margin = new Padding(8, 1, 0, 0)
+    };
     private readonly Button _searchBtn = new() { Text = "Search Mail", Width = 100, Height = 30, Enabled = false };
     private readonly Button _cancelBtn = new() { Text = "Cancel", Width = 70, Height = 30, Enabled = false };
     private readonly Label _countLabel = new() { AutoSize = true, Text = "0 results", ForeColor = Color.Gray };
@@ -195,6 +203,7 @@ public class MainForm : Form
         datePanel.Controls.Add(_dateFromPicker);
         datePanel.Controls.Add(new Label { Text = "to", AutoSize = true, Padding = new Padding(4, 8, 4, 0) });
         datePanel.Controls.Add(_dateToPicker);
+        datePanel.Controls.Add(_clearDatesBtn);
         tbl.Controls.Add(datePanel, 3, 1);
 
         var btnPanel = new FlowLayoutPanel
@@ -249,6 +258,16 @@ public class MainForm : Form
         _searchBtn.Click += OnSearch;
         _cancelBtn.Click += (_, _) => { _cts.Cancel(); SetStatus("Cancelling…"); };
         _resultList.SelectedIndexChanged += OnResultSelected;
+
+        // A checked date box means the date filter is active; Clear unchecks both.
+        _clearDatesBtn.Click += (_, _) =>
+        {
+            _dateFromPicker.Checked = false;
+            _dateToPicker.Checked = false;
+            UpdateClearDatesState();
+        };
+        _dateFromPicker.ValueChanged += (_, _) => UpdateClearDatesState();
+        _dateToPicker.ValueChanged += (_, _) => UpdateClearDatesState();
 
         _folderTree.AfterCheck += (_, e) =>
         {
@@ -519,6 +538,9 @@ public class MainForm : Form
         _openMailboxBtn.Enabled = _svc is not null;
         _searchBtn.Enabled = _folderTree.Nodes.Count > 0;
     }
+
+    private void UpdateClearDatesState() =>
+        _clearDatesBtn.Enabled = _dateFromPicker.Checked || _dateToPicker.Checked;
 
     private void SetStatus(string msg) => _statusLabel.Text = msg;
 
