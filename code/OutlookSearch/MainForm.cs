@@ -9,6 +9,7 @@ public class MainForm : Form
 {
     private OutlookService? _svc;
     private readonly AdLookupService _ad = new();
+    private readonly ExportService _export = new();
     private AdAutoComplete? _fromAutoComplete;
     private readonly List<EmailResult> _results = [];
     private CancellationTokenSource _cts = new();
@@ -52,6 +53,7 @@ public class MainForm : Form
     private readonly Button _searchBtn = new() { Text = "Search Mail", Width = 100, Height = 30, Enabled = false };
     private readonly Button _cancelBtn = new() { Text = "Cancel", Width = 70, Height = 30, Enabled = false };
     private readonly Button _clearAllBtn = new() { Text = "Clear All", Width = 75, Height = 30, Enabled = false };
+    private readonly Button _exportBtn = new() { Text = "Export…", Width = 75, Height = 30, Enabled = false };
     private readonly Label _countLabel = new() { AutoSize = true, Text = "0 results", ForeColor = Color.Gray };
 
     // ── Right: results + preview ──────────────────────────────────
@@ -61,7 +63,7 @@ public class MainForm : Form
         View = View.Details,
         FullRowSelect = true,
         GridLines = true,
-        MultiSelect = false
+        MultiSelect = true
     };
     private readonly RichTextBox _bodyPreview = new()
     {
@@ -215,7 +217,7 @@ public class MainForm : Form
             Padding = new Padding(0, 6, 0, 0)
         };
         _countLabel.Padding = new Padding(8, 12, 0, 0);
-        btnPanel.Controls.AddRange([_searchBtn, _cancelBtn, _clearAllBtn, _countLabel]);
+        btnPanel.Controls.AddRange([_searchBtn, _cancelBtn, _clearAllBtn, _exportBtn, _countLabel]);
         tbl.Controls.Add(btnPanel, 0, 2);
         tbl.SetColumnSpan(btnPanel, 4);
 
@@ -259,6 +261,7 @@ public class MainForm : Form
         _searchBtn.Click += OnSearch;
         _cancelBtn.Click += (_, _) => { _cts.Cancel(); SetStatus("Cancelling…"); };
         _clearAllBtn.Click += OnClearAll;
+        _exportBtn.Click += OnExport;
         _resultList.SelectedIndexChanged += OnResultSelected;
 
         // A checked date box means the date filter is active; Clear unchecks both.
@@ -530,6 +533,7 @@ public class MainForm : Form
         _openMailboxBtn.Enabled = false;
         _searchBtn.Enabled = false;
         _clearAllBtn.Enabled = false;
+        _exportBtn.Enabled = false;
         _cancelBtn.Enabled = cancelable;
     }
 
@@ -541,6 +545,7 @@ public class MainForm : Form
         _openMailboxBtn.Enabled = _svc is not null;
         _searchBtn.Enabled = _folderTree.Nodes.Count > 0;
         _clearAllBtn.Enabled = _svc is not null;
+        _exportBtn.Enabled = _results.Count > 0;
     }
 
     // Resets the search to a clean slate for a fresh query. Folder selections are
@@ -559,8 +564,70 @@ public class MainForm : Form
         _bodyPreview.Clear();
         _countLabel.Text = "0 results";
         _countLabel.ForeColor = Color.Gray;
+        _exportBtn.Enabled = false;
         SetStatus("Cleared. Enter new criteria and Search Mail.");
         _kwBox.Focus();
+    }
+
+    // Exports the selected results (or all of them, if none are selected) to a single
+    // file in the format chosen in the Save dialog.
+    private async void OnExport(object? s, EventArgs e)
+    {
+        if (_svc is null || _results.Count == 0) return;
+
+        var items = _resultList.SelectedItems.Count > 0
+            ? _resultList.SelectedItems.Cast<ListViewItem>().Select(i => (EmailResult)i.Tag!).ToList()
+            : _results.ToList();
+
+        string path;
+        using (var dlg = new SaveFileDialog
+        {
+            Title = $"Export {items.Count} email(s)",
+            FileName = $"Email export {DateTime.Now:yyyy-MM-dd}",
+            Filter = ExportService.FileFilter,
+            DefaultExt = "txt",
+            OverwritePrompt = true
+        })
+        {
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            path = dlg.FileName;
+        }
+
+        ResetCts();
+        var token = _cts.Token;
+        SetBusy($"Preparing {items.Count} email(s) for export…", cancelable: true);
+        try
+        {
+            // Fetch each message body (results carry only metadata).
+            var rows = new List<ExportRow>(items.Count);
+            int done = 0;
+            foreach (var m in items)
+            {
+                if (token.IsCancellationRequested) break;
+                string body = "";
+                try { body = await _svc.GetBodyAsync(m.EntryId, m.StoreId); } catch { }
+                rows.Add(new ExportRow(
+                    m.ReceivedAt?.ToString("yyyy-MM-dd HH:mm") ?? "",
+                    m.From, m.To, m.Subject, m.FolderName, body));
+                if (++done % 10 == 0) SetStatus($"Preparing… {done}/{items.Count}");
+            }
+
+            if (token.IsCancellationRequested) { SetStatus("Export cancelled."); return; }
+
+            SetStatus($"Writing {rows.Count} email(s) to {Path.GetFileName(path)}…");
+            await _export.ExportAsync(path, rows, token);
+
+            SetStatus($"Exported {rows.Count} email(s) to {path}");
+            if (MessageBox.Show("Export complete. Open the file now?", "Export",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Export failed: {ex.Message}");
+            MessageBox.Show(ex.Message, "Export failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally { SetIdle(); }
     }
 
     private void UpdateClearDatesState() =>
@@ -573,6 +640,7 @@ public class MainForm : Form
         _cts.Cancel();
         _cts.Dispose();
         _fromAutoComplete?.Dispose();
+        _export.Dispose();
         _svc?.Dispose();
         base.OnFormClosed(e);
     }
