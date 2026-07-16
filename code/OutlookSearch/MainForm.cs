@@ -8,6 +8,8 @@ namespace OutlookSearch;
 public class MainForm : Form
 {
     private OutlookService? _svc;
+    private readonly AdLookupService _ad = new();
+    private AdAutoComplete? _fromAutoComplete;
     private readonly List<EmailResult> _results = [];
     private CancellationTokenSource _cts = new();
     private int _previewSeq;   // guards against a stale body overwriting a newer selection
@@ -22,7 +24,7 @@ public class MainForm : Form
     // ── Right: search criteria ────────────────────────────────────
     private readonly TextBox _kwBox = new() { Dock = DockStyle.Fill, PlaceholderText = "Searches subject and body" };
     private readonly TextBox _subjectBox = new() { Dock = DockStyle.Fill };
-    private readonly TextBox _fromBox = new() { Dock = DockStyle.Fill, PlaceholderText = "Sender name or email" };
+    private readonly TextBox _fromBox = new() { Dock = DockStyle.Fill, PlaceholderText = "Type a name — autocompletes from AD" };
     private readonly DateTimePicker _dateFromPicker = new()
     {
         Format = DateTimePickerFormat.Short,
@@ -81,6 +83,8 @@ public class MainForm : Form
         BuildLayout();
         SetupListView();
         WireEvents();
+
+        _fromAutoComplete = new AdAutoComplete(_fromBox, _ad);
 
         Shown += async (_, _) => await InitOutlookAsync();
     }
@@ -521,6 +525,7 @@ public class MainForm : Form
     {
         _cts.Cancel();
         _cts.Dispose();
+        _fromAutoComplete?.Dispose();
         _svc?.Dispose();
         base.OnFormClosed(e);
     }

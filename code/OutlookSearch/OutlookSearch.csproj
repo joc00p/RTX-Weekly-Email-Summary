@@ -7,7 +7,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyTitle>Outlook Mail Search</AssemblyTitle>
-    <!-- Late-bound COM automation of local Outlook: no external packages required. -->
+    <!-- Local Outlook via late-bound COM; on-prem AD via System.DirectoryServices (LDAP). No cloud. -->
+    <!-- System.DirectoryServices ships in the Windows Desktop framework — no package needed. -->
   </PropertyGroup>
 
 </Project>
