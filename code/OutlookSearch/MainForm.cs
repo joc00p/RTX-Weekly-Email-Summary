@@ -41,8 +41,8 @@ public class MainForm : Form
         Value = DateTime.Today,
         Width = 125
     };
-    private readonly Button _searchBtn = new() { Text = "Search Mail", Width = 100, Enabled = false };
-    private readonly Button _cancelBtn = new() { Text = "Cancel", Width = 70, Enabled = false };
+    private readonly Button _searchBtn = new() { Text = "Search Mail", Width = 100, Height = 30, Enabled = false };
+    private readonly Button _cancelBtn = new() { Text = "Cancel", Width = 70, Height = 30, Enabled = false };
     private readonly Label _countLabel = new() { AutoSize = true, Text = "0 results", ForeColor = Color.Gray };
 
     // ── Right: results + preview ──────────────────────────────────
@@ -158,7 +158,7 @@ public class MainForm : Form
         var criteriaPanel = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 158,
+            Height = 178,
             Padding = new Padding(6, 4, 6, 4)
         };
 
@@ -172,9 +172,10 @@ public class MainForm : Form
         tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
         tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 68));
         tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-        for (int i = 0; i < 3; i++)
-            tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-        tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));   // keyword / from
+        tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));   // subject / date
+        tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));   // buttons (taller so they aren't clipped)
+        tbl.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));   // spare
 
         tbl.Controls.Add(RightLabel("Keyword:"), 0, 0);
         tbl.Controls.Add(_kwBox, 1, 0);
@@ -201,9 +202,9 @@ public class MainForm : Form
             Dock = DockStyle.Fill,
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
-            Padding = new Padding(0, 4, 0, 0)
+            Padding = new Padding(0, 6, 0, 0)
         };
-        _countLabel.Padding = new Padding(8, 5, 0, 0);
+        _countLabel.Padding = new Padding(8, 12, 0, 0);
         btnPanel.Controls.AddRange([_searchBtn, _cancelBtn, _countLabel]);
         tbl.Controls.Add(btnPanel, 0, 2);
         tbl.SetColumnSpan(btnPanel, 4);
