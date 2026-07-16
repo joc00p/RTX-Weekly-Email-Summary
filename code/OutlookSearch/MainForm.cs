@@ -51,6 +51,7 @@ public class MainForm : Form
     };
     private readonly Button _searchBtn = new() { Text = "Search Mail", Width = 100, Height = 30, Enabled = false };
     private readonly Button _cancelBtn = new() { Text = "Cancel", Width = 70, Height = 30, Enabled = false };
+    private readonly Button _clearAllBtn = new() { Text = "Clear All", Width = 75, Height = 30, Enabled = false };
     private readonly Label _countLabel = new() { AutoSize = true, Text = "0 results", ForeColor = Color.Gray };
 
     // ── Right: results + preview ──────────────────────────────────
@@ -214,7 +215,7 @@ public class MainForm : Form
             Padding = new Padding(0, 6, 0, 0)
         };
         _countLabel.Padding = new Padding(8, 12, 0, 0);
-        btnPanel.Controls.AddRange([_searchBtn, _cancelBtn, _countLabel]);
+        btnPanel.Controls.AddRange([_searchBtn, _cancelBtn, _clearAllBtn, _countLabel]);
         tbl.Controls.Add(btnPanel, 0, 2);
         tbl.SetColumnSpan(btnPanel, 4);
 
@@ -257,6 +258,7 @@ public class MainForm : Form
         _uncheckAllBtn.Click += (_, _) => SetAllChecked(_folderTree.Nodes, false);
         _searchBtn.Click += OnSearch;
         _cancelBtn.Click += (_, _) => { _cts.Cancel(); SetStatus("Cancelling…"); };
+        _clearAllBtn.Click += OnClearAll;
         _resultList.SelectedIndexChanged += OnResultSelected;
 
         // A checked date box means the date filter is active; Clear unchecks both.
@@ -527,6 +529,7 @@ public class MainForm : Form
         _refreshBtn.Enabled = false;
         _openMailboxBtn.Enabled = false;
         _searchBtn.Enabled = false;
+        _clearAllBtn.Enabled = false;
         _cancelBtn.Enabled = cancelable;
     }
 
@@ -537,6 +540,27 @@ public class MainForm : Form
         _refreshBtn.Enabled = _svc is not null;
         _openMailboxBtn.Enabled = _svc is not null;
         _searchBtn.Enabled = _folderTree.Nodes.Count > 0;
+        _clearAllBtn.Enabled = _svc is not null;
+    }
+
+    // Resets the search to a clean slate for a fresh query. Folder selections are
+    // intentionally left checked so a new search can run on the same folders.
+    private void OnClearAll(object? s, EventArgs e)
+    {
+        _kwBox.Clear();
+        _subjectBox.Clear();
+        _fromBox.Clear();
+        _dateFromPicker.Checked = false;
+        _dateToPicker.Checked = false;
+        UpdateClearDatesState();
+
+        _results.Clear();
+        _resultList.Items.Clear();
+        _bodyPreview.Clear();
+        _countLabel.Text = "0 results";
+        _countLabel.ForeColor = Color.Gray;
+        SetStatus("Cleared. Enter new criteria and Search Mail.");
+        _kwBox.Focus();
     }
 
     private void UpdateClearDatesState() =>
