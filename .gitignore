@@ -11,3 +11,6 @@ publish/
 
 # IRCServer lives here as its own repo (github.com/joc00p/IRCServer)
 /code/IRCServer/
+
+# IRCBot lives here as its own repo (github.com/joc00p/IRCBot)
+/code/IRCBot/
