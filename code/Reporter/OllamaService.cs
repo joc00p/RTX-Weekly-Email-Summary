@@ -40,7 +40,7 @@ public class OllamaService
             var blocks = new StringBuilder();
             foreach (var e in group)
             {
-                var excerpt = e.Body.Length > 1500 ? e.Body[..1500] : e.Body;
+                var excerpt = e.Body.Length > 6000 ? e.Body[..6000] : e.Body;
                 blocks.AppendLine($"Date: {e.Received}");
                 blocks.AppendLine($"Subject: {e.Subject}");
                 blocks.AppendLine(excerpt);
@@ -55,9 +55,10 @@ public class OllamaService
                 Their submitted updates:
                 {blocks}
 
-                Extract the most important activities, tasks, blockers, and next steps this person mentioned.
+                Extract the activities, tasks, blockers, and next steps this person mentioned.
                 Output as concise bullet points starting with -. No invented content. No intro text. Bullets only.
-                You MUST produce at least one bullet and NO MORE THAN 6 bullets total.
+                Capture each distinct point as its own bullet — do not merge separate points together.
+                Produce up to 6 bullets (aim for 5 to 6 when the update has that many distinct points), and at least one.
                 If details are sparse, summarize what little was provided.
                 Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
                 """;
