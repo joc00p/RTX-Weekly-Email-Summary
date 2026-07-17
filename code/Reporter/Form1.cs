@@ -557,8 +557,10 @@ public class MainForm : Form
         var parts = new List<string>();
         if (m.SapInstances.HasValue || m.SapRiseServers.HasValue || m.SapXetaServers.HasValue)
             parts.Add($"SAP {m.SapInstances?.ToString() ?? "?"} inst/{m.SapRiseServers?.ToString() ?? "?"} RISE/{m.SapXetaServers?.ToString() ?? "?"} XETA");
-        if (m.SqlDatabases.HasValue) parts.Add($"SQL {m.SqlDatabases}");
-        if (m.CloudServers.HasValue) parts.Add($"Cloud {m.CloudServers}");
+        if (m.SqlDatabases.HasValue)
+            parts.Add(m.SqlBreakdown is { } sb && sb.Contains('+') ? $"SQL {m.SqlDatabases} ({sb})" : $"SQL {m.SqlDatabases}");
+        if (m.CloudServers.HasValue)
+            parts.Add(m.CloudBreakdown is { } cb && cb.Contains('+') ? $"Cloud {m.CloudServers} ({cb})" : $"Cloud {m.CloudServers}");
         return "Counts — " + string.Join(", ", parts);
     }
 

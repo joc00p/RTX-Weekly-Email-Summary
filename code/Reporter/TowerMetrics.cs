@@ -15,11 +15,13 @@ public class TowerMetrics
     public int? SapXetaServers { get; set; }
     public int? SapXetaLiveApps { get; set; }
 
-    // DBA SQL — number of databases
+    // DBA SQL — number of databases (summed from the per-part figures in the emails)
     public int? SqlDatabases { get; set; }
+    public string? SqlBreakdown { get; set; }   // e.g. "52 + 48 + 97"
 
-    // CLOUD — number of servers across Sandbox / DEV / PROD
+    // CLOUD — number of servers summed across every environment listed in the emails
     public int? CloudServers { get; set; }
+    public string? CloudBreakdown { get; set; } // e.g. "40 + 33 + 40"
 
     public bool AnyFound =>
         SapInstances.HasValue || SapRiseServers.HasValue || SapRiseLiveApps.HasValue ||

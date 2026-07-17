@@ -176,20 +176,18 @@ public class OllamaService
             metrics.SapXetaLiveApps = Pick(d, "xeta_live_apps");
         }
 
+        // DBA and Cloud are summed deterministically (no model): add up every labeled
+        // part found in that tower's emails. Repeatable and not subject to model guessing.
         if (byTower.TryGetValue("DBA SQL", out var dbaEmails))
         {
-            ct.ThrowIfCancellationRequested();
-            StatusUpdate?.Invoke("Extracting SQL database count...");
-            var d = ParseNumbers(await CallOllama(SqlMetricsPrompt(CombineBodies(dbaEmails)), ct));
-            metrics.SqlDatabases = Pick(d, "sql_databases");
+            StatusUpdate?.Invoke("Summing SQL database counts...");
+            (metrics.SqlDatabases, metrics.SqlBreakdown) = SumMatches(CombineBodies(dbaEmails), DatabaseCountRegex);
         }
 
         if (byTower.TryGetValue("CLOUD", out var cloudEmails))
         {
-            ct.ThrowIfCancellationRequested();
-            StatusUpdate?.Invoke("Extracting Cloud server count...");
-            var d = ParseNumbers(await CallOllama(CloudMetricsPrompt(CombineBodies(cloudEmails)), ct));
-            metrics.CloudServers = Pick(d, "cloud_servers");
+            StatusUpdate?.Invoke("Summing Cloud server counts...");
+            (metrics.CloudServers, metrics.CloudBreakdown) = SumMatches(CombineBodies(cloudEmails), ServerCountRegex);
         }
 
         return metrics;
@@ -222,25 +220,23 @@ public class OllamaService
         {{text}}
         """;
 
-    private static string SqlMetricsPrompt(string text) => $$"""
-        Extract the total number of SQL databases from this DBA / SQL team update.
-        Return ONLY a JSON object, nothing else, in exactly this shape:
-        {"sql_databases": 0}
-        Use null if it is not explicitly stated. Do not guess.
+    // "<number> servers" — one per environment/line; summed for the Cloud total.
+    private static readonly Regex ServerCountRegex = new(@"(\d[\d,]*)\s+servers?\b", RegexOptions.IgnoreCase);
+    // "<number> databases", "<number> SQL databases", or "<number> DBs" — summed for the DBA total.
+    private static readonly Regex DatabaseCountRegex = new(@"(\d[\d,]*)\s+(?:sql\s+)?(?:databases?|dbs?)\b", RegexOptions.IgnoreCase);
 
-        DBA / SQL update:
-        {{text}}
-        """;
+    // Sums every number that precedes the target noun. Returns the total and a "a + b + c"
+    // breakdown for display, or (null, null) when nothing matched (caller keeps template value).
+    private static (int? Total, string? Breakdown) SumMatches(string text, Regex rx)
+    {
+        var parts = new List<int>();
+        foreach (Match m in rx.Matches(text))
+            if (int.TryParse(m.Groups[1].Value.Replace(",", ""), out var n))
+                parts.Add(n);
 
-    private static string CloudMetricsPrompt(string text) => $$"""
-        Extract the total number of Cloud servers (across Sandbox, DEV, and PROD) from this Cloud team update.
-        Return ONLY a JSON object, nothing else, in exactly this shape:
-        {"cloud_servers": 0}
-        Use null if it is not explicitly stated. Do not guess.
-
-        Cloud update:
-        {{text}}
-        """;
+        if (parts.Count == 0) return (null, null);
+        return (parts.Sum(), string.Join(" + ", parts));
+    }
 
     // Pulls integer values out of the model's JSON reply, tolerating extra prose around it.
     private static Dictionary<string, int?> ParseNumbers(string response)
