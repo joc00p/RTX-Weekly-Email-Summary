@@ -108,8 +108,6 @@ public class MainForm : Form
             _copyMenuItem,
             _saveMenuItem,
             new ToolStripSeparator(),
-            _pptxMenuItem,
-            new ToolStripSeparator(),
             settingsItem,
         });
 
@@ -124,6 +122,7 @@ public class MainForm : Form
         reportMenu.DropDownItems.AddRange(new ToolStripItem[]
         {
             _generateMenuItem,
+            _pptxMenuItem,
             new ToolStripSeparator(),
             teamsItem,
         });
