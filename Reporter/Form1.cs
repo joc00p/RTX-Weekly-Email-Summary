@@ -131,8 +131,8 @@ public class MainForm : Form
         toolsMenu.DropDownItems.Add(teamsItem);
 
         menuStrip.Items.Add(fileMenu);
-        menuStrip.Items.Add(reportMenu);
         menuStrip.Items.Add(toolsMenu);
+        menuStrip.Items.Add(reportMenu);
 
         // Toolbar — theme toggle only
         _toolbar = new Panel { Dock = DockStyle.Top, Height = 36 };
