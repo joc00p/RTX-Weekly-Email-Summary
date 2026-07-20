@@ -92,6 +92,8 @@ public class PowerPointService
         new(@"\d[\d,]*\s+instances?\s+on\s+(?:sap\s+)?(?:rise|xeta)\b", RegexOptions.IgnoreCase),
         new(@"\d[\d,]*\s+(?:sql\s+)?(?:databases?|dbs?)\b", RegexOptions.IgnoreCase),
         new(@"total\s+vm['’]?s?\b", RegexOptions.IgnoreCase),
+        // Bare count breakdowns like "RHEL - 31", "SLES - 49", "Windows: 42" (OS/VM tallies)
+        new(@"^\s*[A-Za-z][A-Za-z ._/]*\s*[-:]\s*\d[\d,]*\s*$", RegexOptions.IgnoreCase),
     };
 
     private static bool IsMetricLine(string bullet) => MetricLinePatterns.Any(rx => rx.IsMatch(bullet));

@@ -37,6 +37,15 @@ public class OllamaService
             ct.ThrowIfCancellationRequested();
             StatusUpdate?.Invoke($"Summarizing {group.Key} ({personSummaries.Count + 1}/{bySender.Count})...");
 
+            // Deterministic short-circuit: a brief "no work this period" note (PTO/OOO) becomes a
+            // single accurate bullet, bypassing the model so it can't pad it with fabricated activity.
+            var combinedBody = string.Join("\n", group.Select(e => e.Body));
+            if (IsNoWorkUpdate(combinedBody))
+            {
+                personSummaries.Add((group.Key, "- " + NoWorkBullet(combinedBody)));
+                continue;
+            }
+
             var blocks = new StringBuilder();
             foreach (var e in group)
             {
@@ -293,6 +302,26 @@ public class OllamaService
         }
 
         return string.Join("\n", kept);
+    }
+
+    // A brief note whose only substance is "I was out" (PTO / OOO / on leave / no updates).
+    // Length-gated so a real update that merely mentions upcoming PTO isn't caught.
+    private static bool IsNoWorkUpdate(string body)
+    {
+        var b = Regex.Replace(body ?? "", @"\s+", " ").Trim();
+        if (b.Length == 0 || b.Length > 200) return false;
+        return Regex.IsMatch(b, @"\b(pto|out\s+of\s+office|o\.?o\.?o\.?|on\s+leave|on\s+vacation|was\s+off|no\s+updates?|nothing\s+to\s+report)\b",
+            RegexOptions.IgnoreCase);
+    }
+
+    // Turns that brief note into one clean bullet (greeting stripped).
+    private static string NoWorkBullet(string body)
+    {
+        var b = Regex.Replace(body ?? "", @"\s+", " ").Trim();
+        b = Regex.Replace(b, @"^(hi|hello|hey|good\s+morning|good\s+afternoon|greetings)\b[^,.\n]*[,:]?\s*", "",
+            RegexOptions.IgnoreCase).Trim().TrimEnd('.', ' ');
+        if (b.Length == 0) return "On PTO";
+        return b.Length > 120 ? b.Substring(0, 120).Trim() : b;
     }
 
     // True for "absence of content" filler the model sometimes emits when an update is trivial
