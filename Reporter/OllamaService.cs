@@ -55,11 +55,12 @@ public class OllamaService
                 Their submitted updates:
                 {blocks}
 
-                Extract the activities, tasks, blockers, and next steps this person mentioned.
-                Output as concise bullet points starting with -. No invented content. No intro text. Bullets only.
-                Capture each distinct point as its own bullet — do not merge separate points together.
-                Produce up to 6 bullets (aim for 5 to 6 when the update has that many distinct points), and at least one.
-                If details are sparse, summarize what little was provided.
+                Extract only the activities, tasks, blockers, and next steps this person actually mentioned.
+                Output as concise bullet points starting with -. No intro text. Bullets only.
+                Create one bullet per distinct point that is actually stated. Do NOT invent, pad, or add filler
+                to reach a number, and do NOT output "no updates" / "nothing to report" style bullets. Use at most 6 bullets.
+                If the update is brief or just says the person had no work this period (for example, on PTO),
+                output a single short bullet stating exactly that and nothing more.
                 Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
                 """;
 
@@ -76,6 +77,7 @@ public class OllamaService
                 .Where(l => l.TrimStart().StartsWith('-') || l.TrimStart().StartsWith('•'))
                 .Where(l => !l.Contains("Coopersmith", StringComparison.OrdinalIgnoreCase))
                 .Where(l => !l.Contains("punch list", StringComparison.OrdinalIgnoreCase))
+                .Where(l => !IsFillerBullet(l))
                 .Take(6)
                 .ToList();
             if (bulletLines.Count == 0)
@@ -291,6 +293,23 @@ public class OllamaService
         }
 
         return string.Join("\n", kept);
+    }
+
+    // True for "absence of content" filler the model sometimes emits when an update is trivial
+    // (e.g. "No updates mentioned", "No specific tasks or activities mentioned", "Nothing to report").
+    // A real bullet like "On PTO last week" is kept.
+    private static bool IsFillerBullet(string line)
+    {
+        var s = line.TrimStart(' ', '\t', '-', '•', '*').Trim().TrimEnd('.').ToLowerInvariant();
+        if (s.Length == 0) return true;
+        if (s is "n/a" or "na" or "none" or "nothing to report" or "not applicable" or "no updates" or "no update")
+            return true;
+        if (s.StartsWith("no ") &&
+            Regex.IsMatch(s, @"\b(mentioned|reported|provided|noted|stated|listed|specified|available)\b"))
+            return true;
+        if (Regex.IsMatch(s, @"^no\s+(specific\s+)?(updates?|tasks?|activities|activity|items?|details?)\s*$"))
+            return true;
+        return false;
     }
 
     private static string RemoveBannedPhrases(string text)
