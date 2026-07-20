@@ -192,9 +192,17 @@ public class OutlookService
             var line = lines[i].TrimEnd();
             var trimmed = line.TrimStart();
 
-            // Stop at common Outlook quote/forward separators only
-            if (trimmed.StartsWith("-----Original Message-----", StringComparison.OrdinalIgnoreCase) ||
-                trimmed.StartsWith("________________________________", StringComparison.OrdinalIgnoreCase) ||
+            // Stop at the start of a quoted / forwarded original message. Everything below is the
+            // prior thread, not this person's update — including it makes the summarizer attribute
+            // quoted text (often the recipient's own request) to the sender. Covers Outlook desktop,
+            // web, and mobile reply formats.
+            if (trimmed.StartsWith("-----Original Message", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("________", StringComparison.Ordinal) ||
+                trimmed.StartsWith("From:", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("Sent:", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith(">") ||
+                trimmed.StartsWith("Get Outlook", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("Sent from my", StringComparison.OrdinalIgnoreCase) ||
                 (trimmed.StartsWith("On ") && System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"\bwrote:\s*$")))
                 break;
 
