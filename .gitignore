@@ -10,10 +10,13 @@ publish/
 /OutlookSearch/
 
 # IRCServer lives here as its own repo (github.com/joc00p/IRCServer)
-/code/IRCServer/
+/IRCServer/
 
 # IRCBot lives here as its own repo (github.com/joc00p/IRCBot)
-/code/IRCBot/
+/IRCBot/
+
+# IRCClient lives here as its own repo (github.com/joc00p/IRCClient)
+/IRCClient/
 
 # SSHClient lives here as its own repo (github.com/joc00p/SSHClient)
 /SSHClient/
