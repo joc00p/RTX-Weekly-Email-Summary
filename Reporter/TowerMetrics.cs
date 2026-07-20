@@ -8,12 +8,11 @@ namespace Reporter;
 /// </summary>
 public class TowerMetrics
 {
-    // SAP — instance and server counts for RISE and XETA
-    public int? SapInstances { get; set; }
+    // SAP — instance and server counts for RISE and Xeta
+    public int? SapRiseInstances { get; set; }
     public int? SapRiseServers { get; set; }
-    public int? SapRiseLiveApps { get; set; }
+    public int? SapXetaInstances { get; set; }
     public int? SapXetaServers { get; set; }
-    public int? SapXetaLiveApps { get; set; }
 
     // DBA SQL — number of databases (summed from the per-part figures in the emails)
     public int? SqlDatabases { get; set; }
@@ -24,7 +23,7 @@ public class TowerMetrics
     public string? CloudBreakdown { get; set; } // e.g. "40 + 33 + 40"
 
     public bool AnyFound =>
-        SapInstances.HasValue || SapRiseServers.HasValue || SapRiseLiveApps.HasValue ||
-        SapXetaServers.HasValue || SapXetaLiveApps.HasValue ||
+        SapRiseInstances.HasValue || SapRiseServers.HasValue ||
+        SapXetaInstances.HasValue || SapXetaServers.HasValue ||
         SqlDatabases.HasValue || CloudServers.HasValue;
 }

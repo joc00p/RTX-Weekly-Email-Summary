@@ -566,8 +566,8 @@ public class MainForm : Form
     {
         if (m == null || !m.AnyFound) return "No server/DB counts found in emails.";
         var parts = new List<string>();
-        if (m.SapInstances.HasValue || m.SapRiseServers.HasValue || m.SapXetaServers.HasValue)
-            parts.Add($"SAP {m.SapInstances?.ToString() ?? "?"} inst/{m.SapRiseServers?.ToString() ?? "?"} RISE/{m.SapXetaServers?.ToString() ?? "?"} XETA");
+        if (m.SapRiseInstances.HasValue || m.SapRiseServers.HasValue || m.SapXetaInstances.HasValue || m.SapXetaServers.HasValue)
+            parts.Add($"SAP RISE {m.SapRiseInstances?.ToString() ?? "?"}inst/{m.SapRiseServers?.ToString() ?? "?"}srv, Xeta {m.SapXetaInstances?.ToString() ?? "?"}inst/{m.SapXetaServers?.ToString() ?? "?"}srv");
         if (m.SqlDatabases.HasValue)
             parts.Add(m.SqlBreakdown is { } sb && sb.Contains('+') ? $"SQL {m.SqlDatabases} ({sb})" : $"SQL {m.SqlDatabases}");
         if (m.CloudServers.HasValue)

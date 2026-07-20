@@ -342,17 +342,27 @@ public class PowerPointService
         foreach (XmlNode t in cell.SelectNodes(".//a:t", nsm)!)
         {
             var s = t.InnerText;
-            // "20 instances with 104 RISE servers, 4 live apps"
-            s = ReplaceMetric(s, @"(\d+)(\s+instances with\s+)(\d+)(\s+RISE servers,\s+)(\d+)(\s+live apps)",
-                m.SapInstances, m.SapRiseServers, m.SapRiseLiveApps);
-            // "19 XETA servers, 4 live apps"
-            s = ReplaceMetric(s, @"(\d+)(\s+XETA servers,\s+)(\d+)(\s+live apps)",
-                m.SapXetaServers, m.SapXetaLiveApps);
-            // "197 SQL Databases"
-            s = ReplaceMetric(s, @"(\d+)(\s+SQL Databases)", m.SqlDatabases);
-            // "113 Servers in Sandbox, DEV, PROD"
-            s = ReplaceMetric(s, @"(\d+)(\s+Servers in Sandbox)", m.CloudServers);
-            if (s != t.InnerText) t.InnerText = s;
+            var lead = Regex.Match(s, @"^\s*").Value; // preserve the template's leading indent
+
+            if (s.Contains("RISE", StringComparison.OrdinalIgnoreCase))
+            {
+                // SAP RISE line — rewritten to the email's phrasing (instances + servers)
+                if (m.SapRiseInstances.HasValue && m.SapRiseServers.HasValue)
+                    t.InnerText = $"{lead}{m.SapRiseInstances} instances on RISE with {m.SapRiseServers} servers";
+            }
+            else if (s.Contains("XETA", StringComparison.OrdinalIgnoreCase))
+            {
+                // SAP Xeta line — rewritten to the email's phrasing (instances + servers)
+                if (m.SapXetaInstances.HasValue && m.SapXetaServers.HasValue)
+                    t.InnerText = $"{lead}{m.SapXetaInstances} instances on Xeta with {m.SapXetaServers} servers";
+            }
+            else
+            {
+                // "197 SQL Databases" and "113 Servers in Sandbox, DEV, PROD" — number substitution
+                s = ReplaceMetric(s, @"(\d+)(\s+SQL Databases)", m.SqlDatabases);
+                s = ReplaceMetric(s, @"(\d+)(\s+Servers in Sandbox)", m.CloudServers);
+                if (s != t.InnerText) t.InnerText = s;
+            }
         }
     }
 

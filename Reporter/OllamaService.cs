@@ -153,11 +153,11 @@ public class OllamaService
     }
 
     /// <summary>
-    /// Pulls the server / database counts the towers report each week (SAP instances &amp;
-    /// RISE/XETA servers, SQL databases, Cloud servers) for the lower-right template table.
-    /// One focused extraction per tower keeps the local model's context tight.
+    /// Pulls the server / database counts the towers report each week (SAP RISE/Xeta instances
+    /// and servers, SQL databases, Cloud Total VMs) for the lower-right template table.
+    /// All parsing is deterministic regex over the tower emails — no model, so the numbers are exact.
     /// </summary>
-    public async Task<TowerMetrics> ExtractMetricsAsync(List<EmailItem> emails, CancellationToken ct)
+    public Task<TowerMetrics> ExtractMetricsAsync(List<EmailItem> emails, CancellationToken ct)
     {
         var metrics = new TowerMetrics();
         var byTower = emails
@@ -167,18 +167,22 @@ public class OllamaService
 
         if (byTower.TryGetValue("SAP", out var sapEmails))
         {
-            ct.ThrowIfCancellationRequested();
-            StatusUpdate?.Invoke("Extracting SAP server counts...");
-            var d = ParseNumbers(await CallOllama(SapMetricsPrompt(CombineBodies(sapEmails)), ct));
-            metrics.SapInstances    = Pick(d, "instances");
-            metrics.SapRiseServers  = Pick(d, "rise_servers");
-            metrics.SapRiseLiveApps = Pick(d, "rise_live_apps");
-            metrics.SapXetaServers  = Pick(d, "xeta_servers");
-            metrics.SapXetaLiveApps = Pick(d, "xeta_live_apps");
+            StatusUpdate?.Invoke("Reading SAP instance/server counts...");
+            var text = CombineBodies(sapEmails);
+            var rise = SapRiseRegex.Match(text);
+            if (rise.Success)
+            {
+                metrics.SapRiseInstances = ParseInt(rise.Groups[1]);
+                metrics.SapRiseServers = ParseInt(rise.Groups[2]);
+            }
+            var xeta = SapXetaRegex.Match(text);
+            if (xeta.Success)
+            {
+                metrics.SapXetaInstances = ParseInt(xeta.Groups[1]);
+                metrics.SapXetaServers = ParseInt(xeta.Groups[2]);
+            }
         }
 
-        // DBA and Cloud are summed deterministically (no model): add up every labeled
-        // part found in that tower's emails. Repeatable and not subject to model guessing.
         if (byTower.TryGetValue("DBA SQL", out var dbaEmails))
         {
             StatusUpdate?.Invoke("Summing SQL database counts...");
@@ -191,10 +195,7 @@ public class OllamaService
             metrics.CloudServers = ExtractTotalVms(CombineBodies(cloudEmails));
         }
 
-        return metrics;
-
-        static int? Pick(Dictionary<string, int?> d, string key) =>
-            d.TryGetValue(key, out var v) ? v : null;
+        return Task.FromResult(metrics);
     }
 
     private static string CombineBodies(List<EmailItem> emails)
@@ -202,7 +203,7 @@ public class OllamaService
         var sb = new StringBuilder();
         foreach (var e in emails)
         {
-            var excerpt = e.Body.Length > 2000 ? e.Body[..2000] : e.Body;
+            var excerpt = e.Body.Length > 6000 ? e.Body[..6000] : e.Body;
             sb.AppendLine($"From: {e.From}");
             sb.AppendLine($"Subject: {e.Subject}");
             sb.AppendLine(excerpt);
@@ -211,15 +212,11 @@ public class OllamaService
         return sb.ToString();
     }
 
-    private static string SapMetricsPrompt(string text) => $$"""
-        Extract exact numbers from this SAP team status update.
-        Return ONLY a JSON object, nothing else, in exactly this shape:
-        {"instances": 0, "rise_servers": 0, "rise_live_apps": 0, "xeta_servers": 0, "xeta_live_apps": 0}
-        Use null for any value that is not explicitly stated. Do not guess or calculate.
+    // SAP: "22 instances on SAP RISE with 110 servers" and "4 instances on Xeta with 19 servers"
+    private static readonly Regex SapRiseRegex = new(@"(\d[\d,]*)\s+instances?\s+on\s+(?:sap\s+)?rise\s+with\s+(\d[\d,]*)\s+servers?", RegexOptions.IgnoreCase);
+    private static readonly Regex SapXetaRegex = new(@"(\d[\d,]*)\s+instances?\s+on\s+xeta\s+with\s+(\d[\d,]*)\s+servers?", RegexOptions.IgnoreCase);
 
-        SAP update:
-        {{text}}
-        """;
+    private static int? ParseInt(Group g) => int.TryParse(g.Value.Replace(",", ""), out var n) ? n : null;
 
     // Cloud total = the "Total VMs" figure the Cloud tower reports (number after or before the label).
     private static readonly Regex TotalVmsAfterRegex = new(@"total\s+vm['’]?s?\b\s*[:=\-]?\s*(\d[\d,]*)", RegexOptions.IgnoreCase);
@@ -246,40 +243,6 @@ public class OllamaService
         var m = TotalVmsAfterRegex.Match(text);
         if (!m.Success) m = TotalVmsBeforeRegex.Match(text);
         return m.Success && int.TryParse(m.Groups[1].Value.Replace(",", ""), out var n) ? n : null;
-    }
-
-    // Pulls integer values out of the model's JSON reply, tolerating extra prose around it.
-    private static Dictionary<string, int?> ParseNumbers(string response)
-    {
-        var result = new Dictionary<string, int?>(StringComparer.OrdinalIgnoreCase);
-        if (string.IsNullOrWhiteSpace(response)) return result;
-
-        int start = response.IndexOf('{');
-        int end = response.LastIndexOf('}');
-        if (start < 0 || end <= start) return result;
-
-        try
-        {
-            using var doc = JsonDocument.Parse(response.Substring(start, end - start + 1));
-            foreach (var prop in doc.RootElement.EnumerateObject())
-            {
-                result[prop.Name] = prop.Value.ValueKind switch
-                {
-                    JsonValueKind.Number => prop.Value.TryGetInt32(out var n) ? n : null,
-                    JsonValueKind.String => TryExtractInt(prop.Value.GetString()),
-                    _ => null,
-                };
-            }
-        }
-        catch { }
-        return result;
-    }
-
-    private static int? TryExtractInt(string? s)
-    {
-        if (string.IsNullOrWhiteSpace(s)) return null;
-        var m = Regex.Match(s, @"\d+");
-        return m.Success && int.TryParse(m.Value, out var n) ? n : null;
     }
 
     // Matches a risk *label* line: an optional bullet, a risk keyword, then a colon/dash.
