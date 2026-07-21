@@ -66,8 +66,12 @@ public class OllamaService
 
                 Extract only the activities, tasks, blockers, and next steps this person actually mentioned.
                 Output as concise bullet points starting with -. No intro text. Bullets only.
-                Create one bullet per distinct point that is actually stated. Do NOT invent, pad, or add filler
-                to reach a number, and do NOT output "no updates" / "nothing to report" style bullets. Use at most 6 bullets.
+                Create a separate bullet for EACH distinct activity or update that is actually stated. Do NOT
+                merge separate points together and do NOT skip any. Produce up to 8 bullets. Do NOT invent,
+                pad, or add filler, and do NOT output "no updates" / "nothing to report" style bullets.
+                Do NOT create a bullet for server, VM, instance, or database counts (for example
+                "22 instances on RISE with 110 servers", "Total VMs: 126", "RHEL - 31") — those totals are
+                reported in a separate section, so leave them out here.
                 If the update is brief or just says the person had no work this period (for example, on PTO),
                 output a single short bullet stating exactly that and nothing more.
                 Do NOT use the phrase "punch list" or "punch lists" anywhere in your response.
