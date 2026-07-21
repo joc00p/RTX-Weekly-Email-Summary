@@ -70,6 +70,8 @@ public class OllamaService
                 Create a separate bullet for EACH distinct activity or update that is actually stated. Do NOT
                 merge separate points together and do NOT skip any. Produce up to 8 bullets. Do NOT invent,
                 pad, or add filler, and do NOT output "no updates" / "nothing to report" style bullets.
+                Keep the bullets in the SAME top-to-bottom order they appear in the update — do not reorder
+                them. The points nearer the top of the update are the most important, so list them first.
                 Do NOT create a bullet for server, VM, instance, or database counts (for example
                 "22 instances on RISE with 110 servers", "Total VMs: 126", "RHEL - 31") — those totals are
                 reported in a separate section, so leave them out here.
