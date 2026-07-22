@@ -22,7 +22,8 @@ public class OllamaService
 
     public event Action<string>? StatusUpdate;
 
-    public async Task<string> SummarizeWeekAsync(string weekLabel, List<EmailItem> emails, CancellationToken ct)
+    // Per-person summarization (the expensive Ollama step): one filtered bullet list per reporter.
+    private async Task<List<(string Name, string Summary)>> SummarizePeopleAsync(string weekLabel, List<EmailItem> emails, CancellationToken ct)
     {
         // Group emails by sender, exclude Joel Coopersmith
         var bySender = emails
@@ -107,37 +108,46 @@ public class OllamaService
             personSummaries.Add((group.Key, trimmed));
         }
 
-        // Step 2: Group people by tower.
-        StatusUpdate?.Invoke("Assembling report...");
+        return personSummaries;
+    }
+
+    // Step 1: candidate data points per tower (top-first order), for the user to pick from.
+    public async Task<Dictionary<string, List<string>>> ExtractDataPointsAsync(string weekLabel, List<EmailItem> emails, CancellationToken ct)
+    {
+        var personSummaries = await SummarizePeopleAsync(weekLabel, emails, ct);
         var byTower = personSummaries
             .GroupBy(p => _teamConfig.GetTeam(p.Name))
             .ToDictionary(g => g.Key, g => g.ToList());
 
-        // Team Updates: grouped by tower, HARD-CAPPED at 5 bullets per tower (round-robin across
-        // that tower's members). This is the single place the "max 5 per tower" rule is enforced.
-        var teamSection = new StringBuilder();
+        var result = new Dictionary<string, List<string>>();
         foreach (var tower in TeamConfig.TowerNames)
         {
             if (!byTower.TryGetValue(tower, out var members) || members.Count == 0) continue;
-            var bullets = TopBulletsPerTower(members, MaxBulletsPerTower);
-            if (bullets.Count == 0) continue;
-            teamSection.AppendLine($"**{tower}**");
-            foreach (var b in bullets) teamSection.AppendLine($"- {b}");
-            teamSection.AppendLine();
+            var candidates = TopBulletsPerTower(members, int.MaxValue); // all candidates, top-first
+            if (candidates.Count > 0) result[tower] = candidates;
         }
+        return result;
+    }
 
-        // Exec-summary input: every tower's full (uncapped) bullet set, for context only.
+    // Step 2: assemble the final report from the data points the user selected per tower.
+    public async Task<string> BuildReportAsync(string weekLabel, Dictionary<string, List<string>> selectedByTower, CancellationToken ct)
+    {
+        var teamSection = new StringBuilder();
         var towerSection = new StringBuilder();
-        foreach (var tower in TeamConfig.TowerNames.Append("Other"))
+        foreach (var tower in TeamConfig.TowerNames)
         {
-            if (!byTower.TryGetValue(tower, out var members) || members.Count == 0) continue;
+            if (!selectedByTower.TryGetValue(tower, out var bullets) || bullets.Count == 0) continue;
+            teamSection.AppendLine($"**{tower}**");
             towerSection.AppendLine($"**{tower}**");
-            foreach (var (_, summary) in members)
-                towerSection.AppendLine(summary);
+            foreach (var b in bullets)
+            {
+                teamSection.AppendLine($"- {b}");
+                towerSection.AppendLine($"- {b}");
+            }
+            teamSection.AppendLine();
             towerSection.AppendLine();
         }
 
-        // Step 4: Generate summary + executive summary from tower-grouped sections
         StatusUpdate?.Invoke("Writing executive summary...");
         var execPrompt = $"""
             You are writing the final sections of a team status report for the period: {weekLabel}
@@ -161,7 +171,6 @@ public class OllamaService
 
         var execSummary = StripRiskLines(await CallOllama(execPrompt, ct));
 
-        // Assemble final report
         var report = new StringBuilder();
         report.AppendLine($"## STATUS REPORT — {weekLabel}");
         report.AppendLine();
@@ -171,7 +180,6 @@ public class OllamaService
         report.AppendLine("---");
         report.AppendLine();
         report.AppendLine(execSummary.Trim());
-
         return CleanBulletSpacing(RemoveBannedPhrases(report.ToString()));
     }
 

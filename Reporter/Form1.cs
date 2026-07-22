@@ -433,15 +433,41 @@ public class MainForm : Form
             ? selectedWeeks[0]
             : $"{selectedWeeks[0]} through {selectedWeeks[^1]}";
 
-        SetBusy(true, $"Generating report for {weekLabel} ({allEmails.Count} email(s))...");
+        SetBusy(true, $"Extracting data points for {weekLabel} ({allEmails.Count} email(s))...");
         _generateMenuItem.Enabled = false;
 
         try
         {
-            var report = await _ollama.SummarizeWeekAsync(weekLabel, allEmails, cts.Token);
+            var candidates = await _ollama.ExtractDataPointsAsync(weekLabel, allEmails, cts.Token);
             if (_cts != cts) return; // superseded by a newer generation — let it own the UI
             var metrics = await _ollama.ExtractMetricsAsync(allEmails, cts.Token);
             if (_cts != cts) return;
+
+            SetBusy(false, "");
+            if (candidates.Count == 0)
+            {
+                SetStatus($"No data points found for {weekLabel}.");
+                return;
+            }
+
+            // Let the user pick which points go in each tower's report (top 5 pre-checked).
+            using var picker = new SelectDataPointsForm(candidates, 5);
+            if (picker.ShowDialog(this) != DialogResult.OK)
+            {
+                SetStatus("Report cancelled.");
+                return;
+            }
+            var selected = picker.SelectedByTower;
+            if (selected.Count == 0)
+            {
+                SetStatus("No data points selected — report not generated.");
+                return;
+            }
+
+            SetBusy(true, "Building report from selected points...");
+            var report = await _ollama.BuildReportAsync(weekLabel, selected, cts.Token);
+            if (_cts != cts) return;
+
             string cacheKey = string.Join("|", selectedWeeks);
             _reportCache[cacheKey] = report;
             _metricsCache[cacheKey] = metrics;

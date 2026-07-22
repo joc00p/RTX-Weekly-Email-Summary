@@ -156,7 +156,9 @@ public class PowerPointService
             txBody.AppendChild(MakeParagraph(doc, team, bold: true));
 
             // Round-robin: take 1 bullet from each member in turn, repeat until 5 total
-            const int MaxPerTeam = 5;
+            // The report already contains exactly the points the user selected per tower, so show
+            // all of them here rather than re-capping (the picker is where the count is chosen).
+            const int MaxPerTeam = int.MaxValue;
             var memberBullets = members
                 .Select(m => m.Bullets.Where(b => !string.IsNullOrWhiteSpace(b) && !IsMetricLine(b)).ToList())
                 .Where(b => b.Count > 0)
