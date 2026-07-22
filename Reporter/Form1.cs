@@ -20,6 +20,8 @@ public class MainForm : Form
     private readonly Dictionary<string, string> _reportCache = new();
     private readonly Dictionary<string, TowerMetrics> _metricsCache = new();
     private TowerMetrics _lastMetrics = new();
+    private readonly Dictionary<string, List<string>?> _upcomingCache = new();
+    private List<string>? _lastUpcoming;
     private string _lastWeekLabel = "";
 
     private ListBox _weekList = null!;
@@ -310,6 +312,7 @@ public class MainForm : Form
         _pptxMenuItem.Enabled = false;
         _reportCache.Clear();
         _metricsCache.Clear();
+        _upcomingCache.Clear();
 
         try
         {
@@ -352,6 +355,7 @@ public class MainForm : Form
         {
             ShowReport(cached);
             _lastMetrics = _metricsCache.TryGetValue(cacheKey, out var cm) ? cm : new TowerMetrics();
+            _lastUpcoming = _upcomingCache.TryGetValue(cacheKey, out var uc) ? uc : null;
             _copyMenuItem.Enabled = true;
             _saveMenuItem.Enabled = true;
             _pptxMenuItem.Enabled = true;
@@ -464,6 +468,15 @@ public class MainForm : Form
                 return;
             }
 
+            // Second curation step: pick/edit/add the "Upcoming Activities / Actions" entries.
+            List<string>? upcoming = null;
+            if (_pptx.TemplateExists)
+            {
+                using var uaForm = new UpcomingActivitiesForm(_pptx.ReadUpcomingActivities());
+                if (uaForm.ShowDialog(this) == DialogResult.OK)
+                    upcoming = uaForm.SelectedEntries;
+            }
+
             SetBusy(true, "Building report from selected points...");
             var report = await _ollama.BuildReportAsync(weekLabel, selected, cts.Token);
             if (_cts != cts) return;
@@ -471,7 +484,9 @@ public class MainForm : Form
             string cacheKey = string.Join("|", selectedWeeks);
             _reportCache[cacheKey] = report;
             _metricsCache[cacheKey] = metrics;
+            _upcomingCache[cacheKey] = upcoming;
             _lastMetrics = metrics;
+            _lastUpcoming = upcoming;
             ShowReport(report);
             _lastWeekLabel = weekLabel;
             _copyMenuItem.Enabled = true;
@@ -564,7 +579,7 @@ public class MainForm : Form
 
         try
         {
-            _pptx.Export(_lastWeekLabel, _reportBox.Text, _lastMetrics, dlg.FileName);
+            _pptx.Export(_lastWeekLabel, _reportBox.Text, _lastMetrics, _lastUpcoming, dlg.FileName);
             SetStatus($"PPTX exported: {System.IO.Path.GetFileName(dlg.FileName)}");
         }
         catch (Exception ex)
@@ -618,7 +633,7 @@ public class MainForm : Form
 
         try
         {
-            _pptx.Export(weekLabel, reportText, new TowerMetrics(), saveDlg.FileName);
+            _pptx.Export(weekLabel, reportText, new TowerMetrics(), null, saveDlg.FileName);
             SetStatus($"PPTX exported from file: {System.IO.Path.GetFileName(saveDlg.FileName)}");
         }
         catch (Exception ex)

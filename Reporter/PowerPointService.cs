@@ -24,7 +24,7 @@ public class PowerPointService
     public bool TemplateExists => File.Exists(_templatePath);
     public string TemplatePath { get => _templatePath; set => _templatePath = value; }
 
-    public void Export(string weekLabel, string reportText, TowerMetrics metrics, string outputPath)
+    public void Export(string weekLabel, string reportText, TowerMetrics metrics, IReadOnlyList<string>? upcomingActivities, string outputPath)
     {
         File.Copy(_templatePath, outputPath, overwrite: true);
 
@@ -45,6 +45,7 @@ public class PowerPointService
         UpdateKeyAccomplishments(doc, nsm, reportText);
         UpdateExecutiveSummary(doc, nsm, reportText);
         UpdateManagedServicesMetrics(doc, nsm, metrics);
+        UpdateUpcomingActivities(doc, nsm, upcomingActivities);
 
         // Serialize to MemoryStream as UTF-8 so the XML declaration is correct
         using var ms = new MemoryStream();
@@ -84,6 +85,67 @@ public class PowerPointService
     }
 
     private string GetTeam(string personName) => _teamConfig.GetTeam(personName);
+
+    // Reads the current entries from the template's "Upcoming Activities / Actions" cell so the user
+    // can curate them (check / edit / add) before export.
+    public List<string> ReadUpcomingActivities()
+    {
+        var entries = new List<string>();
+        if (!File.Exists(_templatePath)) return entries;
+        using var archive = ZipFile.OpenRead(_templatePath);
+        var entry = archive.GetEntry("ppt/slides/slide1.xml");
+        if (entry == null) return entries;
+        string xml;
+        using (var reader = new StreamReader(entry.Open(), Encoding.UTF8)) xml = reader.ReadToEnd();
+        var doc = new XmlDocument();
+        doc.LoadXml(xml);
+        var nsm = new XmlNamespaceManager(doc.NameTable);
+        nsm.AddNamespace("a", NS);
+        var cell = FindUpcomingActivitiesCell(doc, nsm);
+        if (cell == null) return entries;
+        foreach (XmlNode p in cell.SelectNodes("a:txBody/a:p", nsm)!)
+        {
+            var t = string.Concat(p.SelectNodes(".//a:t", nsm)!.Cast<XmlNode>().Select(n => n.InnerText)).Trim();
+            if (t.Length > 0) entries.Add(t);
+        }
+        return entries;
+    }
+
+    // The content cell sits directly beneath the "Upcoming Activities / Actions" sub-header.
+    private static XmlNode? FindUpcomingActivitiesCell(XmlDocument doc, XmlNamespaceManager nsm)
+    {
+        foreach (XmlNode tbl in doc.SelectNodes("//a:tbl", nsm)!)
+        {
+            var rows = tbl.SelectNodes("a:tr", nsm)!.Cast<XmlNode>().ToList();
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var cells = rows[r].SelectNodes("a:tc", nsm)!.Cast<XmlNode>().ToList();
+                for (int c = 0; c < cells.Count; c++)
+                {
+                    var text = string.Concat(cells[c].SelectNodes(".//a:t", nsm)!.Cast<XmlNode>().Select(n => n.InnerText));
+                    if (text.Contains("Upcoming Activities", StringComparison.OrdinalIgnoreCase) && r + 1 < rows.Count)
+                    {
+                        var nextCells = rows[r + 1].SelectNodes("a:tc", nsm)!.Cast<XmlNode>().ToList();
+                        if (c < nextCells.Count) return nextCells[c];
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // Writes the user's curated Upcoming Activities into that cell. null = leave the template as-is.
+    private static void UpdateUpcomingActivities(XmlDocument doc, XmlNamespaceManager nsm, IReadOnlyList<string>? entries)
+    {
+        if (entries == null) return;
+        var cell = FindUpcomingActivitiesCell(doc, nsm);
+        if (cell?.SelectSingleNode("a:txBody", nsm) is not XmlNode txBody) return;
+        foreach (var p in txBody.SelectNodes("a:p", nsm)!.Cast<XmlNode>().ToList())
+            txBody.RemoveChild(p);
+        foreach (var e in entries)
+            txBody.AppendChild(MakeParagraph(doc, $"• {e}", bold: false));
+        txBody.AppendChild(MakeEmptyParagraph(doc));
+    }
 
     // Lines that feed the Managed Services Tasks counts (SAP instances/servers, DB counts,
     // Total VMs) — excluded from Key Accomplishments so those numbers aren't duplicated there.
