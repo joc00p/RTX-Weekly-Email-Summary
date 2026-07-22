@@ -57,8 +57,9 @@ public class OllamaService
                 Extract only the activities, tasks, blockers, and next steps this person actually mentioned.
                 Output as concise bullet points starting with -. No intro text. Bullets only.
                 Create a separate bullet for EACH distinct activity or update that is actually stated. Do NOT
-                merge separate points together and do NOT skip any. Produce up to 8 bullets. Do NOT invent,
-                pad, or add filler, and do NOT output "no updates" / "nothing to report" style bullets.
+                merge separate points together and do NOT skip any — there may be many points, list every
+                one (up to 20). Do NOT invent, pad, or add filler, and do NOT output "no updates" /
+                "nothing to report" style bullets.
                 Keep the bullets in the SAME top-to-bottom order they appear in the update — do not reorder
                 them. The points nearer the top of the update are the most important, so list them first.
                 Do NOT create a bullet for server, VM, instance, or database counts (for example
@@ -76,7 +77,7 @@ public class OllamaService
                 .Where(l => !l.Contains("punch list", StringComparison.OrdinalIgnoreCase))
                 .Where(l => !IsFillerBullet(l))
                 .Where(l => !IsCountLine(l))
-                .Take(8)
+                .Take(20)
                 .ToList();
             if (bulletLines.Count > 0)
                 results.Add((e.From, string.Join("\n", bulletLines)));
